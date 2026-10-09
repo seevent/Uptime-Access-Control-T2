@@ -34,7 +34,13 @@ function walk(dir) {
  */
 function oldNameLines() {
     const files = [...walk("src").filter((f) => !f.startsWith(path.join("src", "lang"))), ...walk("server")];
-    files.push(...walk("extra"), "index.html", path.join("public", "manifest.json"));
+    // extra/docker-latest-warning is the page of the upstream "latest" Docker image, not part of this app.
+    const upstreamOnly = path.join("extra", "docker-latest-warning");
+    files.push(
+        ...walk("extra").filter((f) => !f.startsWith(upstreamOnly)),
+        "index.html",
+        path.join("public", "manifest.json")
+    );
     const found = [];
     for (const file of files) {
         fs.readFileSync(path.join(ROOT, file), "utf8")

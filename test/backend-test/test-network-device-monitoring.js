@@ -235,6 +235,39 @@ describe("addDevicesToMonitoring", () => {
         assert.deepEqual(calls.start, []);
     });
 
+    test("a device with a category goes into the group of its category, the others into the chosen parent", async () => {
+        const [a, b, c] = await seed([{ ip: "10.0.0.1" }, { ip: "10.0.0.2" }, { ip: "10.0.0.3" }]);
+        const insertGroup = async (name, parent = null) => {
+            await R.exec(
+                "INSERT INTO monitor (name, type, parent, interval, retry_interval, user_id) VALUES (?, 'group', ?, 60, 60, ?)",
+                [name, parent, USER_ID]
+            );
+            return (await R.getRow("SELECT id FROM monitor WHERE name = ?", [name])).id;
+        };
+        const catGroup = await insertGroup("Terminal 2");
+        const subGroup = await insertGroup("CCTV", catGroup);
+        const chosen = await insertGroup("Lain-lain");
+        const cat = await store.addCategory("Terminal 2");
+        const sub = await store.addSubcategory(cat.id, "CCTV");
+        await R.exec("UPDATE network_category SET group_monitor_id = ? WHERE id = ?", [catGroup, cat.id]);
+        await R.exec("UPDATE network_category SET group_monitor_id = ? WHERE id = ?", [subGroup, sub.id]);
+        await store.setDeviceCategory(a.id, cat.id, null);
+        await store.setDeviceCategory(b.id, cat.id, sub.id);
+
+        await add(
+            [a, b, c].map((d) => ({ id: d.id, type: "ping" })),
+            { parent: chosen }
+        );
+        const parents = Object.fromEntries(
+            (await R.getAll("SELECT hostname, parent FROM monitor WHERE type = 'ping'")).map((m) => [
+                m.hostname,
+                m.parent,
+            ])
+        );
+        assert.deepEqual(parents, { "10.0.0.1": catGroup, "10.0.0.2": subGroup, "10.0.0.3": chosen });
+        await R.exec("DELETE FROM network_category");
+    });
+
     test("deleting the monitor clears the link", async () => {
         const [device] = await seed([{ ip: "10.0.0.5" }]);
         await add([{ id: device.id, type: "ping" }]);
@@ -259,15 +292,40 @@ describe("addDevicesToMonitoring socket event", () => {
                 return { added: 2, skipped: 1, failed: [{ id: 3, msg: "x" }] };
             },
         };
-        const store = { listDevices: async () => [{ id: 1 }] };
+        const store = {
+            listDevices: async () => [{ id: 1 }],
+            getDevicesByIds: async (ids) => ids.map((id) => ({ id, categoryId: id === 1 ? 7 : null })),
+        };
+        const syncCalls = [];
+        const categorySync = {
+            syncCategories: async ({ place, userID }) => {
+                syncCalls.push({ place, userID });
+                return {
+                    categoriesChanged: false,
+                    devicesChanged: false,
+                    monitorsCreated: [],
+                    monitorsUpdated: [],
+                    monitorsDeleted: [],
+                };
+            },
+        };
         networkScanSocketHandler(socket, server, {
             startMonitor: async () => {},
             updateMonitorNotification: async () => {},
             monitoring,
             store,
+            categorySync,
         });
 
-        const payload = { devices: [{ id: 1, type: "ping" }], interval: 60, parent: null, notificationIDList: {} };
+        const payload = {
+            devices: [
+                { id: 1, type: "ping" },
+                { id: 2, type: "ping" },
+            ],
+            interval: 60,
+            parent: null,
+            notificationIDList: {},
+        };
         const reply = await new Promise((resolve) => handlers.get("addDevicesToMonitoring")(payload, resolve));
         assert.deepEqual(reply, { ok: true, added: 2, skipped: 1, failed: [{ id: 3, msg: "x" }] });
         assert.equal(received[0].params.userID, 1);
@@ -278,6 +336,8 @@ describe("addDevicesToMonitoring socket event", () => {
             emitted.map((e) => e.event),
             ["networkDeviceList"]
         );
+        // Only the device with a category is placed into its category group
+        assert.deepEqual(syncCalls, [{ place: [1], userID: 1 }]);
 
         const failing = {
             addDevicesToMonitoring: async () => {
@@ -290,6 +350,7 @@ describe("addDevicesToMonitoring socket event", () => {
             updateMonitorNotification: async () => {},
             monitoring: failing,
             store,
+            categorySync,
         });
         const bad = await new Promise((resolve) => handlers2.get("addDevicesToMonitoring")(payload, resolve));
         assert.deepEqual(bad, { ok: false, msg: "Interval cannot be less than 1 seconds" });
@@ -298,6 +359,7 @@ describe("addDevicesToMonitoring socket event", () => {
         networkScanSocketHandler({ ...socket, session: undefined, on: (e, fn) => handlers3.set(e, fn) }, server, {
             monitoring,
             store,
+            categorySync,
         });
         const denied = await new Promise((resolve) => handlers3.get("addDevicesToMonitoring")(payload, resolve));
         assert.deepEqual(denied, { ok: false, msg: "You are not logged in." });

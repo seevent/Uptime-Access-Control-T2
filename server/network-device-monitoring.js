@@ -1,6 +1,7 @@
 const { R } = require("redbean-node");
 const { MIN_INTERVAL_SECOND, log } = require("../src/util");
 const { getDevicesByIds, setMonitorId } = require("./network-device-store");
+const { groupOfDevice } = require("./network-category-sync");
 
 const TYPES = new Set(["ping", "port"]);
 
@@ -78,7 +79,8 @@ async function findExistingMonitor(type, ip, port) {
  * @param {string} params.userID Owner of the new monitors
  * @param {{id: number, type: "ping"|"port", port?: number|string}[]} params.devices Devices and how to monitor them
  * @param {number} params.interval Check interval in seconds
- * @param {number|null} params.parent Parent group monitor
+ * @param {number|null} params.parent Parent group monitor for devices without a category (a device with a category
+ *     goes into the group of its category)
  * @param {Record<string, boolean>} params.notificationIDList Notifications to attach
  * @param {object} deps Functions that live in server.js
  * @param {Function} deps.startMonitor Starts a monitor
@@ -138,8 +140,14 @@ async function addDevicesToMonitoring(params, deps) {
                 continue;
             }
 
+            // A device with a category goes into the group of its category; the chosen parent group is only for
+            // devices without one.
+            const devicesParent = (await groupOfDevice(device)) ?? parent;
+
             const bean = R.dispense("monitor");
-            bean.import(buildMonitorFields(device, { type: request.type, port }, { userID, interval, parent }));
+            bean.import(
+                buildMonitorFields(device, { type: request.type, port }, { userID, interval, parent: devicesParent })
+            );
             bean.validate();
             await R.store(bean);
 

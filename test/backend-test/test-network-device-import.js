@@ -236,6 +236,30 @@ describe("importDevices", () => {
         );
     });
 
+    test("syncs the categories with the groups after saving and before adding monitors", async () => {
+        const monitoring = fakeMonitoring();
+        const order = [];
+        const original = monitoring.addDevicesToMonitoring;
+        monitoring.addDevicesToMonitoring = async (params, deps) => {
+            order.push("monitor");
+            return original(params, deps);
+        };
+        const synced = [];
+        await run([item(2, "10.0.0.1", { category: "Terminal 2" }), item(3, "10.0.0.2")], {
+            deps: {
+                ...notStarted,
+                monitoring,
+                syncCategories: async (ids) => {
+                    order.push("sync");
+                    // The devices are saved by now
+                    synced.push((await store.getDevicesByIds(ids)).map((d) => d.ip).sort());
+                },
+            },
+        });
+        assert.deepEqual(synced, [["10.0.0.1", "10.0.0.2"]]);
+        assert.deepEqual(order, ["sync", "monitor", "monitor"]);
+    });
+
     test("matches categories whatever the case and spaces, and keeps same-named sub categories apart", async () => {
         await run([
             item(2, "10.0.0.1", { category: "Lobi" }),

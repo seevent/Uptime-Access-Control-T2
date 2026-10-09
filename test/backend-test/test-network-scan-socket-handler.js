@@ -109,6 +109,8 @@ function createHarness({ loggedIn = true, scan } = {}) {
             }
             return id === 1;
         },
+        getDevicesByIds: async (ids) =>
+            ids.filter((id) => id === 1 || id === 2).map((id) => ({ id, categoryId: id === 1 ? 7 : null })),
         setDevicesCategory: async (ids, categoryId, subcategoryId) => {
             calls.push(["setDevicesCategory", ids, categoryId, subcategoryId]);
             if (!Array.isArray(ids)) {
@@ -192,7 +194,28 @@ function createHarness({ loggedIn = true, scan } = {}) {
                 };
             }),
     };
+    // Category <-> group sync: records what the handler asks for; rename and delete go through the fake store.
+    const syncCalls = [];
+    const categorySync = {
+        syncCategories: async ({ place, userID }) => {
+            syncCalls.push({ place, userID });
+            return {
+                categoriesChanged: false,
+                devicesChanged: false,
+                monitorsCreated: [],
+                monitorsUpdated: [],
+                monitorsDeleted: [],
+            };
+        },
+        renameCategory: async (id, name) => ((await store.renameCategory(id, name)) ? { monitorsUpdated: [] } : false),
+        deleteCategory: async (id) => ({
+            deleted: await store.deleteCategory(id),
+            monitorsUpdated: [],
+            monitorsDeleted: [],
+        }),
+    };
     networkScanSocketHandler(socket, server, {
+        categorySync,
         startMonitor: async () => {},
         updateMonitorNotification: async () => {},
         scanner,
@@ -206,6 +229,7 @@ function createHarness({ loggedIn = true, scan } = {}) {
         emitted,
         mergeCalls,
         calls,
+        syncCalls,
         /**
          * Invoke a handler the way Socket.IO does and resolve with the callback argument.
          * @param {string} event Event name

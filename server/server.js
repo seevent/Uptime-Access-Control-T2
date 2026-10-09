@@ -193,7 +193,10 @@ const { resetChrome } = require("./monitor-types/real-browser-monitor-type");
 const { EmbeddedMariaDB } = require("./embedded-mariadb");
 const { SetupDatabase } = require("./setup-database");
 const { chartSocketHandler } = require("./socket-handlers/chart-socket-handler");
-const { networkScanSocketHandler } = require("./socket-handlers/network-scan-socket-handler");
+const {
+    networkScanSocketHandler,
+    syncCategoriesAfterDashboardChange,
+} = require("./socket-handlers/network-scan-socket-handler");
 
 app.use(express.json());
 
@@ -457,6 +460,11 @@ app.use(function (req, res, next) {
 
                 log.info("monitor", `Added Monitor: ${bean.id} User ID: ${socket.userID}`);
 
+                // A new group is a new network category (or sub category)
+                if (bean.type === "group") {
+                    await syncCategoriesAfterDashboardChange(socket, server, startMonitor);
+                }
+
                 callback({
                     ok: true,
                     msg: "successAdded",
@@ -641,6 +649,10 @@ app.use(function (req, res, next) {
                 }
 
                 await server.sendUpdateMonitorIntoList(socket, bean.id);
+
+                // Renamed or moved groups change the network categories; a moved device monitor changes the
+                // category of its device
+                await syncCategoriesAfterDashboardChange(socket, server, startMonitor);
 
                 callback({
                     ok: true,
@@ -871,6 +883,9 @@ app.use(function (req, res, next) {
                     msgi18n: true,
                 });
                 await server.sendDeleteMonitorFromList(socket, monitorID);
+
+                // A deleted group deletes its network category
+                await syncCategoriesAfterDashboardChange(socket, server, startMonitor);
             } catch (e) {
                 callback({
                     ok: false,
@@ -1403,6 +1418,13 @@ app.use(function (req, res, next) {
 
     server.httpServer.listen(port, hostname, async () => {
         printServerUrls("server", port, hostname, config.isSSL);
+
+        // Network categories <-> group monitors (the groups it creates are started with the others below)
+        try {
+            await require("./network-category-sync").syncAtBoot();
+        } catch (e) {
+            log.error("network-scan", `Could not sync categories with the groups: ${e.message}`);
+        }
 
         await startMonitors();
 

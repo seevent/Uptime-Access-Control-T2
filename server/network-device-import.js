@@ -151,7 +151,8 @@ async function previewImport({ rows, options }) {
  * @param {object} params.options Settings for the whole import
  * @param {string} params.userID Owner of the new monitors
  * @param {object} params.deps Functions that live in server.js (`startMonitor`, `updateMonitorNotification`,
- *     `sendUpdateMonitorIntoList`), plus an optional `monitoring` module to use instead of the real one
+ *     `sendUpdateMonitorIntoList`), an optional `syncCategories(deviceIds)` run after the devices are saved and
+ *     before monitors are added, plus an optional `monitoring` module to use instead of the real one
  * @param {Date} params.now Time stamp of the import (default: now)
  * @returns {Promise<object>} `{ created, updated, categoriesCreated, monitorsAdded, monitorsSkipped, rows }`
  * @throws {Error} When the settings are invalid or saving fails; nothing is saved then
@@ -232,6 +233,12 @@ async function importDevices({ rows, options, userID, deps = {}, now = new Date(
             }
         }
     });
+
+    // New categories get their group monitors, and monitors of devices already in the inventory move into the
+    // group of the category from the file, before new monitors are added (they go straight into those groups).
+    if (deps.syncCategories) {
+        await deps.syncCategories([...deviceIds.values()]);
+    }
 
     const monitoring = deps.monitoring || require("./network-device-monitoring");
     const monitorDeps = {

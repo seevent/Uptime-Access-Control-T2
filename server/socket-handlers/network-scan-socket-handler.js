@@ -27,6 +27,60 @@ function resetState() {
 }
 
 /**
+ * Tell the user's clients about monitors that the category sync created, changed or deleted.
+ * @param {object} server Uptime Kuma server
+ * @param {import("socket.io").Socket} socket Socket of the user
+ * @param {{monitorsCreated?: number[], monitorsUpdated?: number[], monitorsDeleted?: number[]}} changes What changed
+ * @returns {Promise<void>}
+ */
+async function notifyMonitorChanges(server, socket, changes) {
+    const deleted = changes.monitorsDeleted || [];
+    const changed = [...new Set([...(changes.monitorsCreated || []), ...(changes.monitorsUpdated || [])])].filter(
+        (id) => !deleted.includes(id)
+    );
+    for (const id of deleted) {
+        if (typeof server.sendDeleteMonitorFromList === "function") {
+            await server.sendDeleteMonitorFromList(socket, id);
+        }
+    }
+    if (changed.length > 20 && typeof server.sendMonitorList === "function") {
+        await server.sendMonitorList(socket);
+    } else if (typeof server.sendUpdateMonitorIntoList === "function") {
+        for (const id of changed) {
+            await server.sendUpdateMonitorIntoList(socket, id);
+        }
+    }
+}
+
+/**
+ * After a monitor was added, edited or deleted on the dashboard: let the categories follow the group monitors and
+ * refresh the lists of the user's clients. Never throws, so it cannot spoil the monitor change itself.
+ * @param {import("socket.io").Socket} socket Socket of the user
+ * @param {object} server Uptime Kuma server
+ * @param {Function} startMonitor Starts a monitor (from server.js)
+ * @returns {Promise<void>}
+ */
+module.exports.syncCategoriesAfterDashboardChange = async (socket, server, startMonitor) => {
+    try {
+        const result = await require("../network-category-sync").syncCategories({
+            place: null,
+            userID: socket.userID,
+            deps: { startMonitor },
+        });
+        await notifyMonitorChanges(server, socket, result);
+        const store = require("../network-device-store");
+        if (result.categoriesChanged) {
+            server.io.to(socket.userID).emit("networkCategoryList", await store.listCategories());
+        }
+        if (result.categoriesChanged || result.devicesChanged) {
+            server.io.to(socket.userID).emit("networkDeviceList", await store.listDevices());
+        }
+    } catch (e) {
+        log.error("network-scan", `Could not sync categories with the groups: ${e.message}`);
+    }
+};
+
+/**
  * Register the Network Scan socket events.
  * @param {import("socket.io").Socket} socket Socket.io instance
  * @param {object} server Uptime Kuma server (needs `io`)
@@ -49,6 +103,33 @@ module.exports.networkScanSocketHandler = (socket, server, deps = {}) => {
     const getImporter = () => deps.importer || require("../network-device-import");
     const getHistory = () => deps.history || require("../network-device-history");
     const getPing = () => deps.ping || require("../network-device-ping");
+    const getSync = () => deps.categorySync || require("../network-category-sync");
+
+    /**
+     * Sync categories and group monitors, then tell the clients about changed monitors.
+     * @param {"all"|number[]|null} place Devices whose category wins (see syncCategories)
+     * @returns {Promise<object>} Result of the sync
+     */
+    const runSync = async (place) => {
+        const result = await getSync().syncCategories({
+            place,
+            userID: socket.userID,
+            deps: { startMonitor: deps.startMonitor },
+        });
+        await notifyMonitorChanges(server, socket, result);
+        return result;
+    };
+
+    /**
+     * The devices, out of the given ids, that have a category (their monitors go into the category group;
+     * the others keep the group they were put in).
+     * @param {number[]} ids Device ids
+     * @returns {Promise<number[]>} Ids of devices with a category
+     */
+    const withCategory = async (ids) =>
+        (await getStore().getDevicesByIds(ids.filter((id) => Number.isInteger(id))))
+            .filter((d) => d.categoryId !== null)
+            .map((d) => d.id);
 
     /**
      * Send the current inventory to every client of this user.
@@ -216,23 +297,30 @@ module.exports.networkScanSocketHandler = (socket, server, deps = {}) => {
             payload.parentId === undefined || payload.parentId === null
                 ? await store.addCategory(payload.name)
                 : await store.addSubcategory(payload.parentId, payload.name);
+        // Creates the group monitor of the new category
+        await runSync(null);
         await emitCategoryList();
         return { id: created.id };
     });
 
     register("renameNetworkCategory", true, async (payload) => {
-        if (!payload || !(await getStore().renameCategory(payload.id, payload.name))) {
+        const renamed = payload ? await getSync().renameCategory(payload.id, payload.name) : false;
+        if (!renamed) {
             throw new Error("Kategori tidak ditemukan");
         }
+        await notifyMonitorChanges(server, socket, renamed);
         await emitCategoryList();
         return {};
     });
 
     register("deleteNetworkCategory", true, async (payload) => {
-        if (!payload || !(await getStore().deleteCategory(payload.id))) {
+        const removed = payload ? await getSync().deleteCategory(payload.id) : { deleted: false };
+        if (!removed.deleted) {
             throw new Error("Kategori tidak ditemukan");
         }
-        // Devices that were in it are uncategorized now.
+        await notifyMonitorChanges(server, socket, removed);
+        await runSync(null);
+        // Devices that were in it are uncategorized now (or only lost their sub category).
         await emitCategoryList();
         await emitDeviceList();
         return {};
@@ -242,6 +330,8 @@ module.exports.networkScanSocketHandler = (socket, server, deps = {}) => {
         if (!payload || !(await getStore().setDeviceCategory(payload.id, payload.categoryId, payload.subcategoryId))) {
             throw new Error("Perangkat tidak ditemukan");
         }
+        // Its monitor moves into the group of the new category (or out of the category groups)
+        await runSync([payload.id]);
         await emitDeviceList();
         return {};
     });
@@ -250,6 +340,7 @@ module.exports.networkScanSocketHandler = (socket, server, deps = {}) => {
         // The store refuses a missing list of ids with the message that names the limit
         const { ids, categoryId, subcategoryId } = payload || {};
         const updated = await getStore().setDevicesCategory(ids, categoryId, subcategoryId);
+        await runSync(ids);
         await emitDeviceList();
         return { updated };
     });
@@ -332,6 +423,13 @@ module.exports.networkScanSocketHandler = (socket, server, deps = {}) => {
                 sendUpdateMonitorIntoList: (monitorID) => server.sendUpdateMonitorIntoList(socket, monitorID),
             }
         );
+        // A device linked to a monitor that already existed: that monitor moves into the device's category group.
+        // Devices without a category take the category of the group they were put in.
+        const requested = Array.isArray(payload.devices) ? payload.devices.map((d) => d?.id) : [];
+        const sync = await runSync(await withCategory(requested));
+        if (sync.categoriesChanged) {
+            await emitCategoryList();
+        }
         await emitDeviceList();
         return result;
     });
@@ -352,8 +450,13 @@ module.exports.networkScanSocketHandler = (socket, server, deps = {}) => {
                 startMonitor: deps.startMonitor,
                 updateMonitorNotification: deps.updateMonitorNotification,
                 sendUpdateMonitorIntoList: (monitorID) => server.sendUpdateMonitorIntoList(socket, monitorID),
+                syncCategories: async (deviceIds) => {
+                    await runSync(await withCategory(deviceIds));
+                },
             },
         });
+        // New monitors of devices without a category take the category of the group they were put in.
+        await runSync(null);
         await emitCategoryList();
         await emitDeviceList();
         return result;
