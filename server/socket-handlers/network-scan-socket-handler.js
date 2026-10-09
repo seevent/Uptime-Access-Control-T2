@@ -1,30 +1,8 @@
 const { checkLogin } = require("../util-server");
 const { log } = require("../../src/util");
+const runner = require("../network-scan-runner");
 
 const NO_SCAN_RUNNING = "Tidak ada scan yang berjalan";
-
-// Only one scan can run at a time on the whole server, so its state lives in the module.
-const state = {
-    running: false,
-    scanId: 0,
-    done: 0,
-    total: 0,
-    found: 0,
-    abortController: null,
-};
-let lastScanId = 0;
-
-/**
- * Forget the running scan. Always called from a finally block so a failed or cancelled scan can never block the next one.
- * @returns {void}
- */
-function resetState() {
-    state.running = false;
-    state.done = 0;
-    state.total = 0;
-    state.found = 0;
-    state.abortController = null;
-}
 
 /**
  * Tell the user's clients about monitors that the category sync created, changed or deleted.
@@ -172,66 +150,14 @@ module.exports.networkScanSocketHandler = (socket, server, deps = {}) => {
         return params;
     };
 
-    /**
-     * Run the scan in the background and report the outcome to the user's clients.
-     * @param {number} scanId Id of this scan
-     * @param {string[]} ips Addresses to scan
-     * @param {AbortController} abortController Used to cancel
-     * @returns {Promise<void>}
-     */
-    const runScan = async (scanId, ips, abortController) => {
-        const scanner = getScanner();
-        const store = getStore();
-        const done = { scanId, cancelled: false };
-
-        try {
-            const result = await scanner.scan({
-                ips,
-                signal: abortController.signal,
-                onProgress: (progress) => {
-                    state.done = progress.done;
-                    state.total = progress.total;
-                    state.found = progress.found;
-                    server.io.to(socket.userID).emit("networkScanProgress", { scanId, ...progress });
-                },
-            });
-            const cancelled = !result.completed;
-            const merged = await store.mergeScan({
-                devices: result.devices,
-                scannedIPs: ips,
-                complete: result.completed,
-            });
-            done.cancelled = cancelled;
-            done.summary = { ...merged, arpAvailable: cancelled ? true : result.arpAvailable };
-        } catch (e) {
-            done.error = e.message;
-        } finally {
-            resetState();
-        }
-
-        // Emitted after the reset, so a client reacting to "done" can start the next scan right away.
-        server.io.to(socket.userID).emit("networkScanDone", done);
-        try {
-            await emitDeviceList();
-        } catch (e) {
-            log.error("network-scan", `Could not send the device list: ${e.message}`);
-        }
-    };
-
     register("getLocalSubnets", false, async () => ({ subnets: getScanner().getLocalSubnets() }));
 
     register("getNetworkDevices", false, async () => ({ devices: await getStore().listDevices() }));
 
-    register("getNetworkScanStatus", false, async () => ({
-        running: state.running,
-        scanId: state.scanId,
-        done: state.done,
-        total: state.total,
-        found: state.found,
-    }));
+    register("getNetworkScanStatus", false, async () => runner.getStatus());
 
     register("startNetworkScan", true, async (payload) => {
-        if (state.running) {
+        if (runner.isRunning()) {
             throw new Error("Scan sedang berjalan");
         }
         if (!payload || !Array.isArray(payload.ranges)) {
@@ -241,30 +167,41 @@ module.exports.networkScanSocketHandler = (socket, server, deps = {}) => {
         if (ips.length === 0) {
             throw new Error("Tidak ada alamat yang bisa di-scan");
         }
-
-        // No await between the check above and this block, so two requests cannot both start.
-        const abortController = new AbortController();
-        const scanId = ++lastScanId;
-        state.running = true;
-        state.scanId = scanId;
-        state.done = 0;
-        state.total = ips.length;
-        state.found = 0;
-        state.abortController = abortController;
-
-        runScan(scanId, ips, abortController).catch((e) => {
-            log.error("network-scan", `Network scan failed unexpectedly: ${e.message}`);
-            resetState();
+        const scanId = runner.startScan({
+            ips,
+            scanner: getScanner(),
+            store: getStore(),
+            emit: (event, data) => server.io.to(socket.userID).emit(event, data),
         });
         return { scanId };
     });
 
     register("cancelNetworkScan", true, async (payload) => {
-        if (!state.running || !payload || payload.scanId !== state.scanId) {
+        if (!payload || !runner.cancel(payload.scanId)) {
             throw new Error(NO_SCAN_RUNNING);
         }
-        state.abortController.abort();
         return {};
+    });
+
+    const getSchedule = () => deps.schedule || require("../network-scan-schedule");
+
+    register("getNetworkScanSchedule", false, async () => {
+        const schedule = getSchedule();
+        const stored = await schedule.getSchedule();
+        return { schedule: stored, nextRunAt: schedule.nextRunAt(stored) };
+    });
+
+    register("saveNetworkScanSchedule", true, async (payload) => {
+        const schedule = getSchedule();
+        const saved = await schedule.saveSchedule(payload, getScanner());
+        return { schedule: saved, nextRunAt: schedule.nextRunAt(saved) };
+    });
+
+    register("acknowledgeNetworkDevices", true, async (payload) => {
+        const ids = payload && payload.all === true ? "all" : payload?.ids;
+        const updated = await getStore().acknowledgeDevices(ids);
+        await emitDeviceList();
+        return { updated };
     });
 
     register("updateNetworkDevice", true, async (payload) => {

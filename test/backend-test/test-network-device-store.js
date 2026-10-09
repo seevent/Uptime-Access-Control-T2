@@ -4,6 +4,7 @@ const knexFactory = require("knex");
 const { R } = require("redbean-node");
 const migration = require("../../db/knex_migrations/2026-10-06-0000-add-network-device");
 const categoryMigration = require("../../db/knex_migrations/2026-10-08-0000-add-network-device-category");
+const acknowledgedMigration = require("../../db/knex_migrations/2026-10-10-0000-add-network-device-acknowledged");
 const store = require("../../server/network-device-store");
 
 const COLUMNS = [
@@ -20,6 +21,8 @@ const COLUMNS = [
     "monitor_id",
     "category_id",
     "subcategory_id",
+    "acknowledged",
+    "alert_note",
 ];
 
 /**
@@ -55,6 +58,7 @@ describe("migration", () => {
         try {
             await migration.up(knex);
             await categoryMigration.up(knex);
+            await acknowledgedMigration.up(knex);
             for (const column of COLUMNS) {
                 assert.equal(await knex.schema.hasColumn("network_device", column), true, column);
             }
@@ -62,6 +66,9 @@ describe("migration", () => {
             const row = { ip: "10.0.0.1", detected_via: "ping", first_seen: now, last_seen: now };
             await knex("network_device").insert(row);
             await assert.rejects(() => knex("network_device").insert(row), /UNIQUE/i);
+
+            await acknowledgedMigration.down(knex);
+            assert.equal(await knex.schema.hasColumn("network_device", "acknowledged"), false);
 
             await categoryMigration.down(knex);
             assert.equal(await knex.schema.hasTable("network_category"), false);
@@ -83,6 +90,7 @@ describe("network device store", () => {
         knex = await createKnex();
         await migration.up(knex);
         await categoryMigration.up(knex);
+        await acknowledgedMigration.up(knex);
         R.setup(knex);
     });
 
@@ -134,7 +142,9 @@ describe("network device store", () => {
             complete: true,
             now: new Date("2026-10-07T11:00:00Z"),
         });
-        assert.deepEqual(summary, { found: 1, new: 0, missing: 0 });
+        assert.equal(summary.found, 1);
+        assert.equal(summary.new, 0);
+        assert.equal(summary.unknown.length, 1, "another MAC address on a known IP is reported");
 
         const [second] = await store.listDevices();
         assert.equal(second.id, first.id);

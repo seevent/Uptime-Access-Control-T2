@@ -9,6 +9,7 @@ const NO_PAYLOAD_EVENTS = new Set([
     "getNetworkDevices",
     "getNetworkScanStatus",
     "getNetworkCategories",
+    "getNetworkScanSchedule",
 ]);
 const ALL_EVENTS = [
     "getLocalSubnets",
@@ -32,6 +33,9 @@ const ALL_EVENTS = [
     "getNetworkPingSeries",
     "getNetworkDownEvents",
     "setNetworkDevicesCategory",
+    "getNetworkScanSchedule",
+    "saveNetworkScanSchedule",
+    "acknowledgeNetworkDevices",
 ];
 
 /**
@@ -122,6 +126,26 @@ function createHarness({ loggedIn = true, scan } = {}) {
             }
             return ids.filter((id) => id === 1 || id === 2).length;
         },
+    };
+    store.acknowledgeDevices = async (ids) => {
+        calls.push(["acknowledgeDevices", ids]);
+        if (ids !== "all" && !Array.isArray(ids)) {
+            throw new Error("Pilih 1 sampai 2000 perangkat");
+        }
+        return ids === "all" ? 3 : ids.length;
+    };
+    let storedSchedule = { enabled: false, intervalMinutes: 60, ranges: [], notificationIDList: [] };
+    const schedule = {
+        getSchedule: async () => storedSchedule,
+        saveSchedule: async (input) => {
+            calls.push(["saveSchedule", input]);
+            if (!input || input.intervalMinutes < 5) {
+                throw new Error("Jeda scan harus 5 sampai 1440 menit");
+            }
+            storedSchedule = input;
+            return storedSchedule;
+        },
+        nextRunAt: (value) => (value.enabled ? 1234 : null),
     };
     const uptime = {
         getDeviceUptime: async (params) => {
@@ -216,6 +240,7 @@ function createHarness({ loggedIn = true, scan } = {}) {
     };
     networkScanSocketHandler(socket, server, {
         categorySync,
+        schedule,
         startMonitor: async () => {},
         updateMonitorNotification: async () => {},
         scanner,
@@ -721,6 +746,50 @@ describe("network scan socket handler", () => {
                 msg: "Pilih 1 sampai 2000 perangkat",
             });
             assert.equal(h.emitted.filter((e) => e.event === "networkDeviceList").length, 0);
+        });
+    });
+    describe("unknown devices and schedule", () => {
+        test("acknowledgeNetworkDevices confirms the chosen devices, or all of them, and refreshes the list", async () => {
+            const h = createHarness();
+            assert.deepEqual(await h.call("acknowledgeNetworkDevices", { ids: [1, 2] }), { ok: true, updated: 2 });
+            assert.deepEqual(await h.call("acknowledgeNetworkDevices", { all: true }), { ok: true, updated: 3 });
+            assert.deepEqual(h.calls, [
+                ["acknowledgeDevices", [1, 2]],
+                ["acknowledgeDevices", "all"],
+            ]);
+            assert.equal(h.emitted.filter((e) => e.event === "networkDeviceList").length, 2);
+        });
+
+        test("acknowledgeNetworkDevices reports a store error", async () => {
+            const h = createHarness();
+            assert.deepEqual(await h.call("acknowledgeNetworkDevices", undefined), {
+                ok: false,
+                msg: "Pilih 1 sampai 2000 perangkat",
+            });
+        });
+
+        test("the schedule can be read and saved", async () => {
+            const h = createHarness();
+            const first = await h.call("getNetworkScanSchedule");
+            assert.equal(first.ok, true);
+            assert.equal(first.schedule.enabled, false);
+            assert.equal(first.nextRunAt, null);
+
+            const input = { enabled: true, intervalMinutes: 30, ranges: ["10.0.0.0/24"], notificationIDList: [1] };
+            assert.deepEqual(await h.call("saveNetworkScanSchedule", input), {
+                ok: true,
+                schedule: input,
+                nextRunAt: 1234,
+            });
+            assert.equal((await h.call("getNetworkScanSchedule")).schedule.intervalMinutes, 30);
+        });
+
+        test("a wrong schedule is refused with the message of the validation", async () => {
+            const h = createHarness();
+            assert.deepEqual(await h.call("saveNetworkScanSchedule", { intervalMinutes: 1 }), {
+                ok: false,
+                msg: "Jeda scan harus 5 sampai 1440 menit",
+            });
         });
     });
 });

@@ -131,6 +131,14 @@ export default {
                 this.allowLoginDialog = true;
             });
 
+            // A scheduled network scan found something nobody has confirmed yet: tell the user wherever they are.
+            socket.on("networkScanDone", (data) => {
+                const count = data?.scheduled && data.summary?.unknown ? data.summary.unknown.length : 0;
+                if (count > 0) {
+                    this.toastError(this.$t("networkScanScheduledUnknown", { count }));
+                }
+            });
+
             socket.on("monitorList", (data) => {
                 this.assignMonitorUrlParser(data);
                 this.monitorList = data;

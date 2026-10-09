@@ -1428,6 +1428,13 @@ app.use(function (req, res, next) {
 
         await startMonitors();
 
+        // Scheduled network scans (also look for unknown devices)
+        try {
+            require("./network-scan-schedule").startScheduler(server);
+        } catch (e) {
+            log.error("network-scan", `Could not start the scheduled network scan: ${e.message}`);
+        }
+
         // Put this here. Start background jobs after the db and server is ready to prevent clear up during db migration.
         await initBackgroundJobs();
 

@@ -28,6 +28,9 @@ function toDevice(row) {
         monitorId: row.monitor_id ?? null,
         categoryId: row.category_id ?? null,
         subcategoryId: row.subcategory_id ?? null,
+        // Rows from before the "unknown device" check have no value: they count as known
+        acknowledged: row.acknowledged === undefined || row.acknowledged === null ? true : Boolean(row.acknowledged),
+        alertNote: row.alert_note ?? null,
     };
 }
 
@@ -80,22 +83,32 @@ async function getDevicesByIds(ids) {
  * @param {string[]} params.scannedIPs Every address the scan covered
  * @param {boolean} params.complete True when the scan ran to the end (only then devices can be marked missing)
  * @param {Date} params.now Time of the scan
- * @returns {Promise<{found: number, new: number, missing: number}>} Summary
+ * @returns {Promise<{found: number, new: number, missing: number, unknown?: object[]}>} Summary. `unknown` is only
+ * there when the scan found something to be alerted about: a new device, or a known address that now answers with
+ * another MAC address. The very first scan of an empty inventory is the baseline: nothing is unknown then.
  */
 async function mergeScan({ devices, scannedIPs, complete, now = new Date() }) {
     const stamp = R.isoDateTimeMillis(dayjs.utc(now));
     const summary = { found: devices.length, new: 0, missing: 0 };
     const foundIPs = new Set(devices.map((d) => d.ip));
+    const unknown = [];
 
     const trx = await R.begin();
     try {
+        const baseline = Number((await trx.getRow("SELECT COUNT(*) AS n FROM network_device")).n) === 0;
         for (const device of devices) {
-            const existing = await trx.getRow("SELECT id FROM network_device WHERE ip = ?", [device.ip]);
+            const existing = await trx.getRow("SELECT id, mac FROM network_device WHERE ip = ?", [device.ip]);
             if (existing) {
+                const macChanged =
+                    Boolean(device.mac) &&
+                    Boolean(existing.mac) &&
+                    device.mac.toLowerCase() !== existing.mac.toLowerCase();
+                const note = macChanged ? `MAC berubah: ${existing.mac} → ${device.mac}` : null;
                 await trx.exec(
                     `UPDATE network_device
                      SET mac = COALESCE(?, mac), hostname = COALESCE(?, hostname), vendor = COALESCE(?, vendor),
                          detected_via = ?, last_seen = ?, is_online = 1
+                         ${macChanged ? ", acknowledged = 0, alert_note = ?" : ""}
                      WHERE id = ?`,
                     [
                         device.mac ?? null,
@@ -103,14 +116,25 @@ async function mergeScan({ devices, scannedIPs, complete, now = new Date() }) {
                         device.vendor ?? null,
                         device.detectedVia,
                         stamp,
+                        ...(macChanged ? [note] : []),
                         existing.id,
                     ]
                 );
+                if (macChanged) {
+                    unknown.push({
+                        ip: device.ip,
+                        mac: device.mac,
+                        vendor: device.vendor ?? null,
+                        hostname: device.hostname ?? null,
+                        reason: "mac",
+                        note,
+                    });
+                }
             } else {
                 await trx.exec(
                     `INSERT INTO network_device
-                        (ip, mac, hostname, vendor, detected_via, first_seen, last_seen, is_online)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+                        (ip, mac, hostname, vendor, detected_via, first_seen, last_seen, is_online, acknowledged, alert_note)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
                     [
                         device.ip,
                         device.mac ?? null,
@@ -119,9 +143,21 @@ async function mergeScan({ devices, scannedIPs, complete, now = new Date() }) {
                         device.detectedVia,
                         stamp,
                         stamp,
+                        baseline ? 1 : 0,
+                        baseline ? null : "Perangkat baru",
                     ]
                 );
                 summary.new++;
+                if (!baseline) {
+                    unknown.push({
+                        ip: device.ip,
+                        mac: device.mac ?? null,
+                        vendor: device.vendor ?? null,
+                        hostname: device.hostname ?? null,
+                        reason: "new",
+                        note: "Perangkat baru",
+                    });
+                }
             }
         }
 
@@ -141,6 +177,9 @@ async function mergeScan({ devices, scannedIPs, complete, now = new Date() }) {
         await trx.rollback();
         throw error;
     }
+    if (unknown.length > 0) {
+        summary.unknown = unknown;
+    }
     return summary;
 }
 
@@ -159,7 +198,10 @@ async function updateLabel(id, label) {
     if (!existing) {
         return false;
     }
-    await R.exec("UPDATE network_device SET label = ? WHERE id = ?", [value === "" ? null : value, id]);
+    await R.exec("UPDATE network_device SET label = ?, acknowledged = 1, alert_note = NULL WHERE id = ?", [
+        value === "" ? null : value,
+        id,
+    ]);
     return true;
 }
 
@@ -364,7 +406,10 @@ async function setDeviceCategory(id, categoryId, subcategoryId) {
         return false;
     }
     const { category, sub } = await checkCategoryPair(categoryId, subcategoryId);
-    await R.exec("UPDATE network_device SET category_id = ?, subcategory_id = ? WHERE id = ?", [category, sub, id]);
+    await R.exec(
+        "UPDATE network_device SET category_id = ?, subcategory_id = ?, acknowledged = 1, alert_note = NULL WHERE id = ?",
+        [category, sub, id]
+    );
     return true;
 }
 
@@ -396,11 +441,11 @@ async function setDevicesCategory(ids, categoryId, subcategoryId) {
             const marks = chunk.map(() => "?").join(",");
             const found = await trx.getRow(`SELECT COUNT(*) AS n FROM network_device WHERE id IN (${marks})`, chunk);
             updated += Number(found.n);
-            await trx.exec(`UPDATE network_device SET category_id = ?, subcategory_id = ? WHERE id IN (${marks})`, [
-                category,
-                sub,
-                ...chunk,
-            ]);
+            await trx.exec(
+                `UPDATE network_device SET category_id = ?, subcategory_id = ?, acknowledged = 1, alert_note = NULL
+                 WHERE id IN (${marks})`,
+                [category, sub, ...chunk]
+            );
         }
         await trx.commit();
         return updated;
@@ -438,10 +483,52 @@ function parseDeviceIds(value) {
  * @returns {Promise<void>}
  */
 async function setMonitorId(id, monitorId) {
-    await R.exec("UPDATE network_device SET monitor_id = ? WHERE id = ?", [monitorId, id]);
+    await R.exec("UPDATE network_device SET monitor_id = ?, acknowledged = 1, alert_note = NULL WHERE id = ?", [
+        monitorId,
+        id,
+    ]);
+}
+
+/**
+ * Confirm devices as known: the "unknown device" mark and its note go away.
+ * @param {number[]|"all"} ids 1 to 2000 different device ids, or "all" for every unknown device
+ * @returns {Promise<number>} How many devices were unknown and are known now
+ * @throws {Error} When the ids are not valid
+ */
+async function acknowledgeDevices(ids) {
+    if (ids === "all") {
+        const before = await R.getRow("SELECT COUNT(*) AS n FROM network_device WHERE acknowledged = 0");
+        await R.exec("UPDATE network_device SET acknowledged = 1, alert_note = NULL WHERE acknowledged = 0");
+        return Number(before.n);
+    }
+    if (
+        !Array.isArray(ids) ||
+        ids.length < 1 ||
+        ids.length > MAX_BULK_DEVICES ||
+        !ids.every((id) => Number.isInteger(id)) ||
+        new Set(ids).size !== ids.length
+    ) {
+        throw new Error(`Pilih 1 sampai ${MAX_BULK_DEVICES} perangkat`);
+    }
+    let updated = 0;
+    for (let i = 0; i < ids.length; i += BULK_CHUNK) {
+        const chunk = ids.slice(i, i + BULK_CHUNK);
+        const marks = chunk.map(() => "?").join(",");
+        const before = await R.getRow(
+            `SELECT COUNT(*) AS n FROM network_device WHERE acknowledged = 0 AND id IN (${marks})`,
+            chunk
+        );
+        updated += Number(before.n);
+        await R.exec(
+            `UPDATE network_device SET acknowledged = 1, alert_note = NULL WHERE acknowledged = 0 AND id IN (${marks})`,
+            chunk
+        );
+    }
+    return updated;
 }
 
 module.exports = {
+    acknowledgeDevices,
     listDevices,
     getDevicesByIds,
     mergeScan,

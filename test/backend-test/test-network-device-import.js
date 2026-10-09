@@ -4,6 +4,7 @@ const knexFactory = require("knex");
 const { R } = require("redbean-node");
 const migration = require("../../db/knex_migrations/2026-10-06-0000-add-network-device");
 const categoryMigration = require("../../db/knex_migrations/2026-10-08-0000-add-network-device-category");
+const acknowledgedMigration = require("../../db/knex_migrations/2026-10-10-0000-add-network-device-acknowledged");
 const store = require("../../server/network-device-store");
 const importer = require("../../server/network-device-import");
 
@@ -188,6 +189,7 @@ describe("importDevices", () => {
         });
         await migration.up(knex);
         await categoryMigration.up(knex);
+        await acknowledgedMigration.up(knex);
         R.setup(knex);
     });
 

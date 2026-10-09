@@ -28,6 +28,10 @@
                             <font-awesome-icon icon="times" />
                             {{ $t("networkScanCancel") }}
                         </button>
+                        <button type="button" class="btn btn-sm btn-normal ms-2" @click="openScheduleDialog">
+                            <font-awesome-icon icon="clock" />
+                            {{ $t("networkScheduleButton") }}
+                        </button>
                     </div>
                 </form>
 
@@ -105,6 +109,21 @@
                             {{ $t("networkScanAddSelected", { count: selectedUnmonitored.length }) }}
                         </button>
                     </div>
+                </div>
+
+                <div
+                    v-if="unknownDevices.length > 0"
+                    class="alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-2 py-2 mb-2"
+                    role="alert"
+                >
+                    <div>
+                        <strong>{{ $t("networkUnknownBanner", { count: unknownDevices.length }) }}</strong>
+                        <div class="small">{{ $t("networkUnknownBannerHelp") }}</div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-warning" :disabled="confirming" @click="confirmAll">
+                        <font-awesome-icon icon="check" />
+                        {{ $t("networkUnknownConfirmAll") }}
+                    </button>
                 </div>
 
                 <div v-if="devices.length > 0" class="d-flex flex-wrap align-items-center gap-2 mb-2">
@@ -309,6 +328,18 @@
                                         <span v-if="isNewDevice(row.device)" class="badge bg-success me-1">
                                             {{ $t("networkScanBadgeNew") }}
                                         </span>
+                                        <button
+                                            v-if="!row.device.acknowledged"
+                                            type="button"
+                                            class="badge bg-danger border-0 me-1"
+                                            :title="(row.device.alertNote || '') + ' — ' + $t('networkUnknownConfirm')"
+                                            :aria-label="$t('networkUnknownConfirm') + ' ' + row.device.ip"
+                                            :disabled="confirming"
+                                            @click="confirmDevice(row.device)"
+                                        >
+                                            {{ $t("networkUnknownBadge") }}
+                                            <font-awesome-icon icon="check" />
+                                        </button>
                                         <router-link
                                             v-if="row.device.monitorId !== null"
                                             :to="'/dashboard/' + row.device.monitorId"
@@ -578,6 +609,7 @@
                 </div>
             </div>
 
+            <NetworkScheduleDialog ref="scheduleDialog" :suggested-ranges="rangesText" />
             <NetworkImportDialog ref="importDialog" :group-list="groupList" :categories="categories" />
 
             <NetworkHistoryDialog
@@ -738,6 +770,7 @@ import Confirm from "../components/Confirm.vue";
 import Datetime from "../components/Datetime.vue";
 import NetworkHistoryDialog from "../components/NetworkHistoryDialog.vue";
 import NetworkImportDialog from "../components/NetworkImportDialog.vue";
+import NetworkScheduleDialog from "../components/NetworkScheduleDialog.vue";
 import NetworkPeriodPicker from "../components/NetworkPeriodPicker.vue";
 import NetworkUptimeDialog from "../components/NetworkUptimeDialog.vue";
 import { filterDevices, filterLabel, isFilterActive, normalizeFilter } from "../network-device-filter.js";
@@ -754,11 +787,13 @@ export default {
         NetworkHistoryDialog,
         NetworkImportDialog,
         NetworkPeriodPicker,
+        NetworkScheduleDialog,
         NetworkUptimeDialog,
     },
 
     data() {
         return {
+            confirming: false,
             maxHosts: MAX_HOSTS,
             rangesText: "",
             starting: false,
@@ -803,6 +838,10 @@ export default {
     },
 
     computed: {
+        unknownDevices() {
+            return this.devices.filter((d) => !d.acknowledged);
+        },
+
         percent() {
             if (!this.progress.total) {
                 return 0;
@@ -1608,6 +1647,48 @@ export default {
          */
         isNewDevice(device) {
             return device.isOnline && device.firstSeen === device.lastSeen;
+        },
+
+        /**
+         * Open the dialog of the scheduled scan.
+         * @returns {void}
+         */
+        openScheduleDialog() {
+            this.$refs.scheduleDialog.show();
+        },
+
+        /**
+         * Confirm one unknown device as known.
+         * @param {object} device Device
+         * @returns {void}
+         */
+        confirmDevice(device) {
+            this.sendConfirm({ ids: [device.id] });
+        },
+
+        /**
+         * Confirm every unknown device as known.
+         * @returns {void}
+         */
+        confirmAll() {
+            this.sendConfirm({ all: true });
+        },
+
+        /**
+         * Ask the server to confirm devices as known.
+         * @param {{ids?: number[], all?: boolean}} payload What to confirm
+         * @returns {void}
+         */
+        sendConfirm(payload) {
+            this.confirming = true;
+            this.$root.getSocket().emit("acknowledgeNetworkDevices", payload, (res) => {
+                this.confirming = false;
+                if (res.ok) {
+                    this.$root.toastSuccess(this.$t("networkUnknownConfirmed", { count: res.updated }));
+                } else {
+                    this.$root.toastRes(res);
+                }
+            });
         },
 
         /**
