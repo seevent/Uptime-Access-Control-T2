@@ -42,6 +42,7 @@ const ALL_EVENTS = [
     "saveNetworkReportSettings",
     "downloadNetworkReport",
     "saveNetworkReportNow",
+    "exportNetworkInventory",
 ];
 
 /**
@@ -245,6 +246,12 @@ function createHarness({ loggedIn = true, scan } = {}) {
             return { filename: "laporan-jaringan-2026-09.xlsx", buffer: Buffer.from("PKfake"), devices: 3 };
         },
     };
+    const inventoryExport = {
+        buildInventoryExport: async (params) => {
+            calls.push(["buildInventoryExport", params]);
+            return { filename: "inventaris-jaringan-20261009-0805.xlsx", buffer: Buffer.from("PKinv"), devices: 4 };
+        },
+    };
     const reportSchedule = {
         getSchedule: async () => reportSettings,
         saveSchedule: async (input, dataDir) => {
@@ -285,6 +292,7 @@ function createHarness({ loggedIn = true, scan } = {}) {
         categorySync,
         schedule,
         report,
+        inventoryExport,
         reportSchedule,
         dataDir: "/data",
         startMonitor: async () => {},
@@ -858,6 +866,18 @@ describe("network scan socket handler", () => {
                 file: "/data/reports/laporan-jaringan-2026-09.xlsx",
                 devices: 3,
             });
+        });
+
+        test("the inventory can be exported to Excel, and only when logged in", async () => {
+            const h = createHarness();
+            assert.deepEqual(await h.call("exportNetworkInventory"), {
+                ok: true,
+                filename: "inventaris-jaringan-20261009-0805.xlsx",
+                data: Buffer.from("PKinv").toString("base64"),
+                devices: 4,
+            });
+            const out = createHarness({ loggedIn: false });
+            assert.equal((await out.call("exportNetworkInventory")).ok, false);
         });
 
         test("the settings of the automatic report can be read and saved", async () => {

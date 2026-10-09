@@ -44,7 +44,7 @@
                             <input
                                 ref="file"
                                 type="file"
-                                accept=".xlsx"
+                                accept=".xlsx,.xls,.csv,.txt"
                                 class="form-control form-control-sm file-input"
                                 :aria-label="$t('networkImportFile')"
                                 @change="onFile"
@@ -232,6 +232,7 @@
 
 <script>
 import { Modal } from "bootstrap";
+import { readImportGrid } from "../network-import-file.js";
 import { MAX_IMPORT_ROWS, buildImportTemplateCsv, parseImportRows } from "../network-import-parse.js";
 
 /** Wait this long after the last change before the rows are checked again. */
@@ -375,11 +376,10 @@ export default {
 
             let grid;
             try {
-                const { readSheet } = await import("read-excel-file/browser");
-                grid = await readSheet(file);
+                grid = await readImportGrid(file);
             } catch (e) {
                 console.warn("Could not read the import file:", e);
-                this.parseError = this.$t("networkImportErrorRead");
+                this.parseError = this.$t(e.code === "size" ? "networkImportErrorSize" : "networkImportErrorRead");
                 return;
             }
 
@@ -488,15 +488,23 @@ export default {
 
         /**
          * @param {object} row Row of the preview
-         * @returns {string} Monitor type, with the port for a port monitor
+         * @returns {string} Monitor type, with the port when there is one
          */
         typeText(row) {
             if (row.status === "error") {
                 return row.type;
             }
-            return row.type === "port"
-                ? `${this.$t("networkScanTypePort")} ${row.port}`
-                : this.$t("networkScanTypePing");
+            const labels = {
+                port: "networkScanTypePort",
+                http: "networkScanTypeHttp",
+                rtsp: "networkScanTypeRtsp",
+                snmp: "networkScanTypeSnmp",
+            };
+            if (!labels[row.type]) {
+                return this.$t("networkScanTypePing");
+            }
+            const label = this.$t(labels[row.type]);
+            return row.port ? `${label} ${row.port}` : label;
         },
 
         /**

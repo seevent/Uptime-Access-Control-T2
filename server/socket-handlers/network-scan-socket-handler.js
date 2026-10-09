@@ -216,6 +216,7 @@ module.exports.networkScanSocketHandler = (socket, server, deps = {}) => {
     });
 
     const getReport = () => deps.report || require("../network-report");
+    const getInventoryExport = () => deps.inventoryExport || require("../network-inventory-export");
     const getReportSchedule = () => deps.reportSchedule || require("../network-report-schedule");
     const getDataDir = () => deps.dataDir || require("../database").dataDir;
 
@@ -238,6 +239,11 @@ module.exports.networkScanSocketHandler = (socket, server, deps = {}) => {
     register("downloadNetworkReport", true, async (payload) => {
         const report = await getReport().buildMonthlyReport({ month: payload?.month });
         return { filename: report.filename, data: report.buffer.toString("base64"), devices: report.devices };
+    });
+
+    register("exportNetworkInventory", false, async () => {
+        const file = await getInventoryExport().buildInventoryExport({});
+        return { filename: file.filename, data: file.buffer.toString("base64"), devices: file.devices };
     });
 
     register("saveNetworkReportNow", true, async (payload) => {

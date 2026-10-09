@@ -95,6 +95,15 @@
                             <font-awesome-icon icon="upload" />
                             {{ $t("networkImportButton") }}
                         </button>
+                        <button
+                            type="button"
+                            class="btn btn-sm btn-normal"
+                            :disabled="exporting || devices.length === 0"
+                            @click="exportInventory"
+                        >
+                            <font-awesome-icon icon="download" />
+                            {{ $t("networkExportButton") }}
+                        </button>
                         <button type="button" class="btn btn-sm btn-normal" @click="openCategoryDialog">
                             <font-awesome-icon icon="cog" />
                             {{ $t("networkScanManageCategories") }}
@@ -829,6 +838,7 @@ import Confirm from "../components/Confirm.vue";
 import Datetime from "../components/Datetime.vue";
 import NetworkHistoryDialog from "../components/NetworkHistoryDialog.vue";
 import NetworkImportDialog from "../components/NetworkImportDialog.vue";
+import { saveBase64File } from "../download-base64.js";
 import NetworkScheduleDialog from "../components/NetworkScheduleDialog.vue";
 import NetworkReportDialog from "../components/NetworkReportDialog.vue";
 import NetworkPeriodPicker from "../components/NetworkPeriodPicker.vue";
@@ -855,6 +865,7 @@ export default {
     data() {
         return {
             confirming: false,
+            exporting: false,
             maxHosts: MAX_HOSTS,
             rangesText: "",
             starting: false,
@@ -1866,6 +1877,23 @@ export default {
             }
             this.$root.getSocket().emit("deleteNetworkDevice", { id: this.deleting.id }, (res) => {
                 this.$root.toastRes(res);
+            });
+        },
+
+        /**
+         * Download the whole inventory as an Excel file.
+         * @returns {void}
+         */
+        exportInventory() {
+            this.exporting = true;
+            this.$root.getSocket().emit("exportNetworkInventory", (res) => {
+                this.exporting = false;
+                if (!res.ok) {
+                    this.$root.toastRes(res);
+                    return;
+                }
+                saveBase64File(res.data, res.filename);
+                this.$root.toastRes({ ok: true, msg: this.$t("networkExportDone", { count: res.devices }) });
             });
         },
 

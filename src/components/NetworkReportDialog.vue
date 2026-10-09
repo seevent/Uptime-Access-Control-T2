@@ -89,6 +89,7 @@
 
 <script>
 import { Modal } from "bootstrap";
+import { saveBase64File } from "../download-base64.js";
 
 export default {
     data() {
@@ -178,18 +179,7 @@ export default {
                     this.$root.toastRes(res);
                     return;
                 }
-                const bytes = Uint8Array.from(atob(res.data), (c) => c.charCodeAt(0));
-                const blob = new Blob([bytes], {
-                    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement("a");
-                link.href = url;
-                link.download = res.filename;
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-                setTimeout(() => URL.revokeObjectURL(url), 10000);
+                saveBase64File(res.data, res.filename);
             });
         },
 
