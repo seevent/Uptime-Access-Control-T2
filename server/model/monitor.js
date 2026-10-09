@@ -1452,9 +1452,24 @@ class Monitor extends BeanModel {
      * @param {boolean} isFirstBeat Is this beat the first of this monitor?
      * @param {Monitor} monitor The monitor to send a notification about
      * @param {import("./heartbeat")} bean Status information about monitor
+     * @param {{skipDependency?: boolean}} options `skipDependency`: send now, without the check of the devices it depends on
      * @returns {Promise<void>}
      */
-    static async sendNotification(isFirstBeat, monitor, bean) {
+    static async sendNotification(isFirstBeat, monitor, bean, options = {}) {
+        // The "down" alert of a network device that depends on another device that is down is held back
+        if (!options.skipDependency) {
+            try {
+                const held = await require("../network-dependency").intercept(monitor, bean, {
+                    send: () => Monitor.sendNotification(isFirstBeat, monitor, bean, { skipDependency: true }),
+                    sendHeldAlert: (monitorId) => Monitor.sendHeldNotification(monitorId),
+                });
+                if (held) {
+                    return;
+                }
+            } catch (e) {
+                log.error("monitor", `[${monitor.name}] Dependency check failed, sending the alert: ${e.message}`);
+            }
+        }
         if (!isFirstBeat || bean.status === DOWN) {
             const notificationList = await Monitor.getNotificationList(monitor);
 
@@ -1521,6 +1536,22 @@ class Monitor extends BeanModel {
                 }
             }
         }
+    }
+
+    /**
+     * Send the "down" alert that was held back for a monitor, because the device it depends on is up again but the
+     * monitor itself is still down.
+     * @param {number} monitorId Monitor id
+     * @returns {Promise<void>}
+     */
+    static async sendHeldNotification(monitorId) {
+        const monitor = await R.findOne("monitor", " id = ? ", [monitorId]);
+        const bean = await R.findOne("heartbeat", " monitor_id = ? ORDER BY time DESC ", [monitorId]);
+        if (!monitor || !bean || bean.status !== DOWN) {
+            return;
+        }
+        bean.msg = `${bean.msg || ""} (perangkat yang jadi induknya sudah pulih, perangkat ini masih down)`.trim();
+        await Monitor.sendNotification(false, monitor, bean, { skipDependency: true });
     }
 
     /**

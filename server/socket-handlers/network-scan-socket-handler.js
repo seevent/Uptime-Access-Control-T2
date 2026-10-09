@@ -204,6 +204,14 @@ module.exports.networkScanSocketHandler = (socket, server, deps = {}) => {
         return { updated };
     });
 
+    register("setNetworkDevicesDependency", true, async (payload) => {
+        // The store refuses a missing list of ids with the message that names the limit
+        const { ids, dependsOnId } = payload || {};
+        const updated = await getStore().setDevicesDependency(ids, dependsOnId ?? null);
+        await emitDeviceList();
+        return { updated };
+    });
+
     register("updateNetworkDevice", true, async (payload) => {
         if (!payload) {
             throw new Error("Perangkat tidak ditemukan");

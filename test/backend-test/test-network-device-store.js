@@ -5,6 +5,7 @@ const { R } = require("redbean-node");
 const migration = require("../../db/knex_migrations/2026-10-06-0000-add-network-device");
 const categoryMigration = require("../../db/knex_migrations/2026-10-08-0000-add-network-device-category");
 const acknowledgedMigration = require("../../db/knex_migrations/2026-10-10-0000-add-network-device-acknowledged");
+const dependencyMigration = require("../../db/knex_migrations/2026-10-11-0000-add-network-device-dependency");
 const store = require("../../server/network-device-store");
 
 const COLUMNS = [
@@ -23,6 +24,7 @@ const COLUMNS = [
     "subcategory_id",
     "acknowledged",
     "alert_note",
+    "depends_on_id",
 ];
 
 /**
@@ -59,6 +61,7 @@ describe("migration", () => {
             await migration.up(knex);
             await categoryMigration.up(knex);
             await acknowledgedMigration.up(knex);
+        await dependencyMigration.up(knex);
             for (const column of COLUMNS) {
                 assert.equal(await knex.schema.hasColumn("network_device", column), true, column);
             }
@@ -67,6 +70,8 @@ describe("migration", () => {
             await knex("network_device").insert(row);
             await assert.rejects(() => knex("network_device").insert(row), /UNIQUE/i);
 
+            await dependencyMigration.down(knex);
+            assert.equal(await knex.schema.hasColumn("network_device", "depends_on_id"), false);
             await acknowledgedMigration.down(knex);
             assert.equal(await knex.schema.hasColumn("network_device", "acknowledged"), false);
 
@@ -91,6 +96,7 @@ describe("network device store", () => {
         await migration.up(knex);
         await categoryMigration.up(knex);
         await acknowledgedMigration.up(knex);
+        await dependencyMigration.up(knex);
         R.setup(knex);
     });
 

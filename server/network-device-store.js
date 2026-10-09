@@ -31,6 +31,7 @@ function toDevice(row) {
         // Rows from before the "unknown device" check have no value: they count as known
         acknowledged: row.acknowledged === undefined || row.acknowledged === null ? true : Boolean(row.acknowledged),
         alertNote: row.alert_note ?? null,
+        dependsOnId: row.depends_on_id ?? null,
     };
 }
 
@@ -215,6 +216,7 @@ async function deleteDevice(id) {
     if (!existing) {
         return false;
     }
+    await R.exec("UPDATE network_device SET depends_on_id = NULL WHERE depends_on_id = ?", [id]);
     await R.exec("DELETE FROM network_device WHERE id = ?", [id]);
     return true;
 }
@@ -490,6 +492,69 @@ async function setMonitorId(id, monitorId) {
 }
 
 /**
+ * Make devices depend on another device (or on none): while that device is down, their "down" alerts are held back.
+ * @param {number[]} ids 1 to 2000 different device ids
+ * @param {number|null} dependsOnId The device they depend on, or null for none
+ * @returns {Promise<number>} How many devices exist and were changed
+ * @throws {Error} When the ids are not valid, the device does not exist, or the dependencies would form a circle
+ */
+async function setDevicesDependency(ids, dependsOnId) {
+    if (
+        !Array.isArray(ids) ||
+        ids.length < 1 ||
+        ids.length > MAX_BULK_DEVICES ||
+        !ids.every((id) => Number.isInteger(id)) ||
+        new Set(ids).size !== ids.length
+    ) {
+        throw new Error(`Pilih 1 sampai ${MAX_BULK_DEVICES} perangkat`);
+    }
+    if (dependsOnId !== null && dependsOnId !== undefined) {
+        if (!Number.isInteger(dependsOnId)) {
+            throw new Error("Perangkat induk tidak valid");
+        }
+        if (ids.includes(dependsOnId)) {
+            throw new Error("Perangkat tidak bisa bergantung pada dirinya sendiri");
+        }
+    }
+    const trx = await R.begin();
+    try {
+        if (dependsOnId !== null && dependsOnId !== undefined) {
+            if (!(await trx.getRow("SELECT id FROM network_device WHERE id = ?", [dependsOnId]))) {
+                throw new Error("Perangkat induk tidak ditemukan");
+            }
+            // Walk up from the new parent: meeting one of the chosen devices would close a circle
+            const chosen = new Set(ids);
+            const seen = new Set();
+            let current = dependsOnId;
+            while (current !== null && current !== undefined && !seen.has(current)) {
+                if (chosen.has(current)) {
+                    throw new Error("Ketergantungan melingkar tidak diizinkan");
+                }
+                seen.add(current);
+                const row = await trx.getRow("SELECT depends_on_id FROM network_device WHERE id = ?", [current]);
+                current = row ? row.depends_on_id : null;
+            }
+        }
+        let updated = 0;
+        for (let i = 0; i < ids.length; i += BULK_CHUNK) {
+            const chunk = ids.slice(i, i + BULK_CHUNK);
+            const marks = chunk.map(() => "?").join(",");
+            const found = await trx.getRow(`SELECT COUNT(*) AS n FROM network_device WHERE id IN (${marks})`, chunk);
+            updated += Number(found.n);
+            await trx.exec(`UPDATE network_device SET depends_on_id = ? WHERE id IN (${marks})`, [
+                dependsOnId ?? null,
+                ...chunk,
+            ]);
+        }
+        await trx.commit();
+        return updated;
+    } catch (error) {
+        await trx.rollback();
+        throw error;
+    }
+}
+
+/**
  * Confirm devices as known: the "unknown device" mark and its note go away.
  * @param {number[]|"all"} ids 1 to 2000 different device ids, or "all" for every unknown device
  * @returns {Promise<number>} How many devices were unknown and are known now
@@ -529,6 +594,7 @@ async function acknowledgeDevices(ids) {
 
 module.exports = {
     acknowledgeDevices,
+    setDevicesDependency,
     listDevices,
     getDevicesByIds,
     mergeScan,

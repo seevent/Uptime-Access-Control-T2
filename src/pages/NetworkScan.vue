@@ -238,6 +238,23 @@
                     >
                         {{ $t("networkBulkApply") }}
                     </button>
+                    <span class="text-muted mx-1">|</span>
+                    <label class="visually-hidden" for="networkBulkParent">{{ $t("networkDependsOn") }}</label>
+                    <select id="networkBulkParent" v-model="bulkParent" class="form-select form-select-sm w-auto">
+                        <option value="">{{ $t("networkDependsOnPick") }}</option>
+                        <option value="none">{{ $t("networkDependsOnNone") }}</option>
+                        <option v-for="parent in parentChoices" :key="parent.id" :value="String(parent.id)">
+                            {{ deviceName(parent) }}
+                        </option>
+                    </select>
+                    <button
+                        type="button"
+                        class="btn btn-sm btn-primary"
+                        :disabled="bulkParent === '' || bulkBusy"
+                        @click="applyBulkDependency"
+                    >
+                        {{ $t("networkDependsOnApply") }}
+                    </button>
                     <button type="button" class="btn btn-sm btn-normal" :disabled="bulkBusy" @click="clearSelection">
                         {{ $t("networkBulkClear") }}
                     </button>
@@ -347,6 +364,16 @@
                                         >
                                             {{ $t("networkScanBadgeMonitored") }}
                                         </router-link>
+                                        <span
+                                            v-if="
+                                                row.device.dependsOnId !== null && row.device.dependsOnId !== undefined
+                                            "
+                                            class="badge bg-secondary ms-1"
+                                            :title="$t('networkDependsOnTitle', { name: parentName(row.device) })"
+                                        >
+                                            <font-awesome-icon icon="link" />
+                                            {{ parentName(row.device) }}
+                                        </span>
                                     </td>
                                     <td>
                                         <input
@@ -836,6 +863,7 @@ export default {
             categoryFilter: { categoryId: null, subcategoryId: null },
             bulkCategory: "",
             bulkSub: "",
+            bulkParent: "",
             bulkBusy: false,
             period: { preset: "24h" },
             uptimeByDevice: {},
@@ -930,6 +958,15 @@ export default {
          */
         selectedUnmonitored() {
             return this.selectedDevices.filter((device) => device.monitorId === null);
+        },
+
+        /**
+         * Devices a checked device can depend on: those that have a monitor and are not checked themselves.
+         * @returns {object[]} Devices
+         */
+        parentChoices() {
+            const checked = new Set(this.selectedIds);
+            return this.devices.filter((device) => device.monitorId !== null && !checked.has(device.id));
         },
 
         allSelected() {
@@ -1270,6 +1307,47 @@ export default {
         },
 
         /**
+         * Make the checked devices depend on the device chosen in the action bar (or on nothing).
+         * @returns {void}
+         */
+        applyBulkDependency() {
+            if (this.bulkBusy || this.bulkParent === "" || this.selectedDevices.length === 0) {
+                return;
+            }
+            this.bulkBusy = true;
+            const payload = {
+                ids: this.selectedDevices.map((device) => device.id),
+                dependsOnId: this.bulkParent === "none" ? null : Number(this.bulkParent),
+            };
+            this.$root.getSocket().emit("setNetworkDevicesDependency", payload, (res) => {
+                this.bulkBusy = false;
+                if (res.ok) {
+                    this.$root.toastRes({ ok: true, msg: this.$t("networkBulkDone", { count: res.updated }) });
+                    this.clearSelection();
+                } else {
+                    this.$root.toastRes(res);
+                }
+            });
+        },
+
+        /**
+         * @param {object} device Device from the inventory
+         * @returns {string} Label, or the IP address when it has none
+         */
+        deviceName(device) {
+            return device.label || device.ip;
+        },
+
+        /**
+         * @param {object} device A device that depends on another
+         * @returns {string} Name of the device it depends on
+         */
+        parentName(device) {
+            const parent = this.devices.find((d) => d.id === device.dependsOnId);
+            return parent ? this.deviceName(parent) : "?";
+        },
+
+        /**
          * Uncheck every device and reset the action bar.
          * @returns {void}
          */
@@ -1277,6 +1355,7 @@ export default {
             this.selectedIds = [];
             this.bulkCategory = "";
             this.bulkSub = "";
+            this.bulkParent = "";
         },
 
         /**

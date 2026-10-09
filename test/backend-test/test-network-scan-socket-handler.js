@@ -36,6 +36,7 @@ const ALL_EVENTS = [
     "getNetworkScanSchedule",
     "saveNetworkScanSchedule",
     "acknowledgeNetworkDevices",
+    "setNetworkDevicesDependency",
 ];
 
 /**
@@ -133,6 +134,16 @@ function createHarness({ loggedIn = true, scan } = {}) {
             throw new Error("Pilih 1 sampai 2000 perangkat");
         }
         return ids === "all" ? 3 : ids.length;
+    };
+    store.setDevicesDependency = async (ids, dependsOnId) => {
+        calls.push(["setDevicesDependency", ids, dependsOnId]);
+        if (!Array.isArray(ids)) {
+            throw new Error("Pilih 1 sampai 2000 perangkat");
+        }
+        if (dependsOnId !== null && ids.includes(dependsOnId)) {
+            throw new Error("Perangkat tidak bisa bergantung pada dirinya sendiri");
+        }
+        return ids.length;
     };
     let storedSchedule = { enabled: false, intervalMinutes: 60, ranges: [], notificationIDList: [] };
     const schedule = {
@@ -766,6 +777,33 @@ describe("network scan socket handler", () => {
                 ok: false,
                 msg: "Pilih 1 sampai 2000 perangkat",
             });
+        });
+
+        test("setNetworkDevicesDependency sets or clears the dependency and refreshes the list", async () => {
+            const h = createHarness();
+            assert.deepEqual(await h.call("setNetworkDevicesDependency", { ids: [1, 2], dependsOnId: 5 }), {
+                ok: true,
+                updated: 2,
+            });
+            assert.deepEqual(await h.call("setNetworkDevicesDependency", { ids: [1] }), { ok: true, updated: 1 });
+            assert.deepEqual(h.calls, [
+                ["setDevicesDependency", [1, 2], 5],
+                ["setDevicesDependency", [1], null],
+            ]);
+            assert.equal(h.emitted.filter((e) => e.event === "networkDeviceList").length, 2);
+        });
+
+        test("setNetworkDevicesDependency reports a store error and does not refresh the list", async () => {
+            const h = createHarness();
+            assert.deepEqual(await h.call("setNetworkDevicesDependency", { ids: [3], dependsOnId: 3 }), {
+                ok: false,
+                msg: "Perangkat tidak bisa bergantung pada dirinya sendiri",
+            });
+            assert.deepEqual(await h.call("setNetworkDevicesDependency", undefined), {
+                ok: false,
+                msg: "Pilih 1 sampai 2000 perangkat",
+            });
+            assert.equal(h.emitted.filter((e) => e.event === "networkDeviceList").length, 0);
         });
 
         test("the schedule can be read and saved", async () => {
