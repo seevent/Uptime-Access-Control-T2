@@ -1,0 +1,26 @@
+{
+    "_note": "Setiap sha256 dikunci dari sumber resmi atau diverifikasi dari dua sumber independen; nilai kosong membuat assemble.sh berhenti. Jangan diisi dari sumber lain.",
+    "node": {
+        "version": "26.10.0",
+        "npmPackage": "node-win-x64",
+        "npmTarball": "https://registry.npmjs.org/node-win-x64/-/node-win-x64-26.10.0.tgz",
+        "npmIntegritySha512": "sha512-GCIKoDIOUTgULKxFNlfumjEmEgIpBB/7csJ11w6WbFcC/dyZ9UH2YAFr1fuNsdEmPZOAVpT2Cv9QKPwluhOCIQ==",
+        "file": "package/bin/node.exe",
+        "sha256": "cea6ac365f9bb9586dafd2084d996e092e7d3e7d07ab52d1f76bf53d1fca9bc4",
+        "sha256Source": "https://nodejs.org/dist/v26.10.0/SHASUMS256.txt (baris win-x64/node.exe). nodejs.org tidak terjangkau dari sandbox build, jadi node.exe diambil dari paket npm node-win-x64 dan HANYA dipakai bila SHA-256 node.exe-nya sama persis dengan hash resmi itu.",
+        "licenseUrl": "https://raw.githubusercontent.com/nodejs/node/v26.10.0/LICENSE"
+    },
+    "winsw": {
+        "version": "2.12.0",
+        "url": "https://github.com/winsw/winsw/releases/download/v2.12.0/WinSW-x64.exe",
+        "sha256": "05b82d46ad331cc16bdc00de5c6332c1ef818df8ceefcd49c726553209b3a0da",
+        "sha256Source": "Rilis v2.12.0 (Jan 2023) tidak memuat digest di GitHub; hash sama dengan manifest Scoop (ScoopInstaller/Main bucket/winsw.json, 64-bit) dan dengan unduhan langsung dari rilis. 2.12.0 adalah rilis stabil terakhir seri 2."
+    },
+    "betterSqlite3": {
+        "version": "12.11.1",
+        "target": "node-v147-win32-x64",
+        "url": "https://github.com/WiseLibs/better-sqlite3/releases/download/v12.11.1/better-sqlite3-v12.11.1-node-v147-win32-x64.tar.gz",
+        "sha256": "ff6d04d52e1625d4fbf4b7a62e4f282366953be40016ded4815a651b2160bff8",
+        "sha256Source": "Digest aset di halaman rilis GitHub WiseLibs/better-sqlite3 v12.11.1 (releases/expanded_assets/v12.11.1); sama dengan hasil unduhan."
+    }
+}

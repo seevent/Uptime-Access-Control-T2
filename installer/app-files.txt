@@ -1,0 +1,7 @@
+server
+src
+db
+dist
+extra
+package.json
+package-lock.json

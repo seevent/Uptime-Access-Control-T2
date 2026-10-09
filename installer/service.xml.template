@@ -1,0 +1,25 @@
+<service>
+  <id>UptimeAccessControlT2</id>
+  <name>Uptime Access Control T2</name>
+  <description>Pemantauan jaringan lokal Uptime Access Control T2.</description>
+  <executable>@INSTALL_DIR@\node\node.exe</executable>
+  <arguments>--require ./uac-guard.cjs --import=tsx server/server.js</arguments>
+  <workingdirectory>@INSTALL_DIR@\app</workingdirectory>
+  <env name="NODE_ENV" value="production"/>
+  <env name="DATA_DIR" value="@DATA_DIR@"/>
+  <env name="UPTIME_KUMA_PORT" value="@PORT@"/>
+  <env name="UPTIME_KUMA_DB_TYPE" value="sqlite"/>
+  <env name="KUMA_SKIP_HIBP" value="1"/>
+  @HOST_ENV@
+  <onfailure action="restart" delay="10 sec"/>
+  <onfailure action="restart" delay="10 sec"/>
+  <onfailure action="restart" delay="10 sec"/>
+  <onfailure action="restart" delay="60 sec"/>
+  <resetfailure>1 hour</resetfailure>
+  <stoptimeout>20 sec</stoptimeout>
+  <logpath>@LOG_DIR@</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>8</keepFiles>
+  </log>
+</service>

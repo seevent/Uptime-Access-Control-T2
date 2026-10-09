@@ -107,8 +107,9 @@ function createAuthInstance() {
             // Enable user management API (used for creating the first admin user)
             admin(),
 
-            // Check if the password has been pwned in data breaches
-            haveIBeenPwned(),
+            // Check if the password has been pwned in data breaches. This needs internet access, so the Windows
+            // service of an isolated network sets KUMA_SKIP_HIBP=1 (otherwise creating the admin fails).
+            ...(process.env.KUMA_SKIP_HIBP === "1" ? [] : [haveIBeenPwned()]),
 
             twoFactor({
                 schema: {
