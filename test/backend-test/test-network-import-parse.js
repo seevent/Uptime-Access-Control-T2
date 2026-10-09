@@ -26,6 +26,8 @@ describe("network import parse", () => {
                 subcategory: "Lobi",
                 type: "ping",
                 port: "",
+                path: "",
+                community: "",
             },
             {
                 row: 3,
@@ -35,8 +37,26 @@ describe("network import parse", () => {
                 subcategory: "Gate",
                 type: "port",
                 port: "443",
+                path: "",
+                community: "",
             },
         ]);
+    });
+
+    test("reads the Path and Community columns", () => {
+        const { items, error } = m.parseImportRows([
+            ["IP", "Tipe", "Port", "Jalur", "SNMP Community"],
+            ["10.0.0.1", "http", "8080", "/login", ""],
+            ["10.0.0.2", "snmp", "", "", "t2-ro"],
+        ]);
+        assert.equal(error, null);
+        assert.deepEqual(
+            items.map((i) => [i.type, i.port, i.path, i.community]),
+            [
+                ["http", "8080", "/login", ""],
+                ["snmp", "", "", "t2-ro"],
+            ]
+        );
     });
 
     test("finds a header that is not in the first row and keeps Excel row numbers", () => {
@@ -105,10 +125,10 @@ describe("network import parse", () => {
         assert.equal(items[0].subcategory, "C");
     });
 
-    test("the template CSV starts with a BOM and lists the six columns", () => {
+    test("the template CSV starts with a BOM and lists the columns", () => {
         const csv = m.buildImportTemplateCsv();
         assert.equal(csv.charCodeAt(0), 0xfeff);
-        assert.equal(csv.split("\r\n")[0], "﻿IP,Nama,Kategori,Sub kategori,Tipe,Port");
+        assert.equal(csv.split("\r\n")[0], "﻿IP,Nama,Kategori,Sub kategori,Tipe,Port,Path,Community");
         assert.ok(csv.split("\r\n").length >= 3);
         assert.ok(!csv.endsWith("\r\n"));
     });

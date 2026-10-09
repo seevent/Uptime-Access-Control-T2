@@ -12,6 +12,8 @@ const HEADER_NAMES = {
     subcategory: ["subkategori", "subcategory"],
     type: ["tipe", "type", "jenis"],
     port: ["port"],
+    path: ["path", "jalur"],
+    community: ["community", "snmpcommunity", "komunitas"],
 };
 
 /**
@@ -101,6 +103,8 @@ export function parseImportRows(grid) {
             subcategory: read("subcategory"),
             type: read("type"),
             port: read("port"),
+            path: read("path"),
+            community: read("community"),
         };
         if (Object.values(fields).some((value) => value !== "")) {
             items.push({ row: i + 1, ...fields });
@@ -122,9 +126,12 @@ export function parseImportRows(grid) {
  */
 export function buildImportTemplateCsv() {
     const lines = [
-        "IP,Nama,Kategori,Sub kategori,Tipe,Port",
-        "10.20.0.11,CCTV Lobi,Terminal 2,Lobi,ping,",
-        "10.20.1.5,X-Ray Gate 3,Terminal 2,Gate,port,443",
+        "IP,Nama,Kategori,Sub kategori,Tipe,Port,Path,Community",
+        "10.20.0.11,CCTV Lobi,Terminal 2,Lobi,ping,,,",
+        "10.20.1.5,X-Ray Gate 3,Terminal 2,Gate,port,443,,",
+        "10.20.1.9,Kamera Gate 3,Terminal 2,Gate,rtsp,554,,",
+        "10.20.1.20,Web NVR,Terminal 2,Gate,http,80,/login,",
+        "10.20.1.1,Switch T2,Terminal 2,,snmp,161,,public",
     ];
     return "﻿" + lines.join("\r\n");
 }

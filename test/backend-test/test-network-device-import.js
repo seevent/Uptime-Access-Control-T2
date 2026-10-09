@@ -110,6 +110,50 @@ describe("planImport", () => {
         );
     });
 
+    test("http, rtsp and snmp rows: empty port is fine, a given port, path and community are checked", () => {
+        const result = plan(
+            [
+                item(2, "10.0.0.1", { type: "http" }),
+                item(3, "10.0.0.2", { type: "http", port: "8080", path: "/login" }),
+                item(4, "10.0.0.3", { type: "rtsp", port: "8554" }),
+                item(5, "10.0.0.4", { type: "snmp", community: "t2-ro" }),
+                item(6, "10.0.0.5", { type: "rtsp", port: "70000" }),
+                item(7, "10.0.0.6", { type: "http", path: "/a b" }),
+                item(8, "10.0.0.7", { type: "snmp", community: "a b" }),
+            ],
+            [],
+            opts({ type: "ping" })
+        );
+        assert.deepEqual(
+            result.rows.map((r) => [r.status, r.type, r.port, r.path, r.community]),
+            [
+                ["new", "http", null, "/", null],
+                ["new", "http", 8080, "/login", null],
+                ["new", "rtsp", 8554, null, null],
+                ["new", "snmp", null, null, "t2-ro"],
+                ["error", "rtsp", null, null, null],
+                ["error", "http", null, null, null],
+                ["error", "snmp", null, null, null],
+            ]
+        );
+        assert.deepEqual(
+            result.rows.slice(4).map((r) => r.msg),
+            ["Port tidak valid", "Path tidak valid", "Community SNMP tidak valid"]
+        );
+    });
+
+    test("the default port of the settings only goes to rows of the same type", () => {
+        const result = plan(
+            [item(2, "10.0.0.1", { type: "http" }), item(3, "10.0.0.2", { type: "rtsp" })],
+            [],
+            opts({ type: "rtsp", port: 8554 })
+        );
+        assert.deepEqual(
+            result.rows.map((r) => r.port),
+            [null, 8554]
+        );
+    });
+
     test("a port row without any port is an error", () => {
         const result = plan([item(2, "10.0.0.1", { type: "port" })]);
         assert.equal(result.rows[0].status, "error");

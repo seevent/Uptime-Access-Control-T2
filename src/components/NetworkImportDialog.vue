@@ -69,6 +69,9 @@
                                     <select id="networkImportType" v-model="form.type" class="form-select">
                                         <option value="ping">{{ $t("networkScanTypePing") }}</option>
                                         <option value="port">{{ $t("networkScanTypePort") }}</option>
+                                        <option value="http">{{ $t("networkScanTypeHttp") }}</option>
+                                        <option value="rtsp">{{ $t("networkScanTypeRtsp") }}</option>
+                                        <option value="snmp">{{ $t("networkScanTypeSnmp") }}</option>
                                     </select>
                                 </div>
                                 <div class="col-md-3">

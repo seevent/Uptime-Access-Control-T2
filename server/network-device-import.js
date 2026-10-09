@@ -4,12 +4,11 @@ const dayjs = require("dayjs");
 dayjs.extend(require("dayjs/plugin/utc"));
 const { MIN_INTERVAL_SECOND } = require("../src/util");
 const { listDevices } = require("./network-device-store");
-const { parsePort } = require("./network-device-monitoring");
+const { parsePort, parsePath, parseCommunity, TYPES } = require("./network-device-monitoring");
 
 const MAX_ROWS = 1000;
 const MAX_LABEL_LENGTH = 255;
 const MAX_CATEGORY_NAME_LENGTH = 100;
-const TYPES = new Set(["ping", "port"]);
 
 /**
  * @param {unknown} value Raw cell value
@@ -50,7 +49,7 @@ function normalizeOptions(options) {
 /**
  * Check every row of the file and decide what an import would do with it. Nothing is written.
  * @param {object} params Parameters
- * @param {object[]} params.rows Items read from the file: `{ row, ip, name, category, subcategory, type, port }`
+ * @param {object[]} params.rows Items read from the file: `{ row, ip, name, category, subcategory, type, port, path, community }`
  * @param {object} params.options Settings for the whole import (type, port, interval, parent, notifications)
  * @param {object[]} params.devices The inventory, as `listDevices()` returns it
  * @returns {{rows: object[], counts: {new: number, update: number, error: number, monitorsToAdd: number}}} The plan
@@ -78,6 +77,8 @@ function planImport({ rows, options, devices }) {
             subcategory: text(raw.subcategory),
             type: text(raw.type).toLowerCase(),
             port: null,
+            path: null,
+            community: null,
             status: "error",
             action: null,
         };
@@ -118,6 +119,26 @@ function planImport({ rows, options, devices }) {
                 return fail("Port tidak valid");
             }
             row.port = port;
+        } else if (row.type !== "ping") {
+            // http, rtsp and snmp: an empty port means the usual port of the service. The default port of the
+            // settings is only for rows of the same type, so a TCP port does not leak into a web page.
+            const given = text(raw.port) !== "" ? raw.port : row.type === settings.type ? settings.port : null;
+            if (given !== null && given !== undefined && text(given) !== "") {
+                const port = parsePort(given);
+                if (port === null) {
+                    return fail("Port tidak valid");
+                }
+                row.port = port;
+            }
+            try {
+                if (row.type === "http") {
+                    row.path = parsePath(raw.path);
+                } else if (row.type === "snmp") {
+                    row.community = parseCommunity(raw.community);
+                }
+            } catch (e) {
+                return fail(e.message);
+            }
         }
 
         const existing = byIp.get(row.ip);
@@ -269,7 +290,13 @@ async function importDevices({ rows, options, userID, deps = {}, now = new Date(
         }
 
         try {
-            const request = { id: deviceIds.get(r.ip), type: r.type, ...(r.type === "port" ? { port: r.port } : {}) };
+            const request = {
+                id: deviceIds.get(r.ip),
+                type: r.type,
+                ...(r.port !== null ? { port: r.port } : {}),
+                ...(r.path !== null ? { path: r.path } : {}),
+                ...(r.community !== null ? { community: r.community } : {}),
+            };
             const added = await monitoring.addDevicesToMonitoring(
                 {
                     userID,

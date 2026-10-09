@@ -88,6 +88,7 @@
                                         <option value="mqtt">MQTT</option>
                                         <option value="ntp">NTP</option>
                                         <option value="rabbitmq">RabbitMQ</option>
+                                        <option value="rtsp">RTSP</option>
                                         <option v-if="!$root.info.isContainer" value="sip-options">
                                             SIP Options Ping
                                         </option>
@@ -492,6 +493,7 @@
                                     monitor.type === 'smtp' ||
                                     monitor.type === 'snmp' ||
                                     monitor.type === 'sip-options' ||
+                                    monitor.type === 'rtsp' ||
                                     monitor.type === 'sftp' ||
                                     monitor.type === 'ntp'
                                 "
@@ -705,6 +707,7 @@
                                     monitor.type === 'smtp' ||
                                     monitor.type === 'snmp' ||
                                     monitor.type === 'sip-options' ||
+                                    monitor.type === 'rtsp' ||
                                     monitor.type === 'sftp' ||
                                     monitor.type === 'ntp' ||
                                     (monitor.type === 'globalping' &&
@@ -3883,7 +3886,8 @@ message HealthCheckResponse {
                 this.monitor.port === "53" ||
                 this.monitor.port === "1812" ||
                 this.monitor.port === "123" ||
-                this.monitor.port === "22"
+                this.monitor.port === "22" ||
+                this.monitor.port === "554"
             ) {
                 if (this.monitor.type === "dns") {
                     this.monitor.port = "53";
@@ -3895,6 +3899,8 @@ message HealthCheckResponse {
                     this.monitor.port = "123";
                 } else if (this.monitor.type === "sftp") {
                     this.monitor.port = "22";
+                } else if (this.monitor.type === "rtsp") {
+                    this.monitor.port = "554";
                 } else if (this.monitor.type === "globalping" && this.monitor.subtype === "ping") {
                     this.monitor.port = "80";
                 } else {
@@ -4281,9 +4287,19 @@ message HealthCheckResponse {
 
             // Validate hostname field input for various monitors
             if (
-                ["dns", "port", "ping", "steam", "gamedig", "radius", "tailscale-ping", "smtp", "snmp", "ntp"].includes(
-                    this.monitor.type
-                ) &&
+                [
+                    "dns",
+                    "port",
+                    "ping",
+                    "steam",
+                    "gamedig",
+                    "radius",
+                    "tailscale-ping",
+                    "smtp",
+                    "snmp",
+                    "ntp",
+                    "rtsp",
+                ].includes(this.monitor.type) &&
                 this.monitor.hostname
             ) {
                 let hostname = this.monitor.hostname.trim();

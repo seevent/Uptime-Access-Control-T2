@@ -777,6 +777,7 @@ export const TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD = {
     radius: "hostname",
     "tailscale-ping": "hostname",
     "sip-options": "hostname",
+    rtsp: "hostname",
 } as const;
 
 /**

@@ -118,6 +118,7 @@ class UptimeKumaServer {
         UptimeKumaServer.monitorTypeList["mongodb"] = new MongodbMonitorType();
         UptimeKumaServer.monitorTypeList["rabbitmq"] = new RabbitMqMonitorType();
         UptimeKumaServer.monitorTypeList["sip-options"] = new SIPMonitorType();
+        UptimeKumaServer.monitorTypeList["rtsp"] = new RtspMonitorType();
         UptimeKumaServer.monitorTypeList["gamedig"] = new GameDigMonitorType();
         UptimeKumaServer.monitorTypeList["steam"] = new SteamMonitorType();
         UptimeKumaServer.monitorTypeList["port"] = new TCPMonitorType();
@@ -607,6 +608,7 @@ const { GrpcKeywordMonitorType } = require("./monitor-types/grpc");
 const { MongodbMonitorType } = require("./monitor-types/mongodb");
 const { RabbitMqMonitorType } = require("./monitor-types/rabbitmq");
 const { SIPMonitorType } = require("./monitor-types/sip-options");
+const { RtspMonitorType } = require("./monitor-types/rtsp");
 const { GameDigMonitorType } = require("./monitor-types/gamedig");
 const { SteamMonitorType } = require("./monitor-types/steam");
 const { TCPMonitorType } = require("./monitor-types/tcp.js");

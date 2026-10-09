@@ -1738,7 +1738,7 @@
     "networkImportTitle": "Import devices from Excel",
     "networkImportFile": "Excel file (.xlsx)",
     "networkImportFileInfo": "{name} · {count} rows",
-    "networkImportHelp": "Columns read: IP (required), Name, Category, Sub category, Type (ping or port) and Port. Categories that do not exist yet are created. A Type or Port in the file replaces the default below for that row.",
+    "networkImportHelp": "Columns read: IP (required), Name, Category, Sub category, Type (ping, port, http, rtsp or snmp), Port, Path (http) and Community (snmp). Categories that do not exist yet are created. A Type or Port in the file replaces the default below for that row; an empty port of http, rtsp and snmp means 80, 554 and 161.",
     "networkImportTemplate": "Download template",
     "networkImportDefaultType": "Default monitor type",
     "networkImportDefaultPort": "Default port",
@@ -1866,5 +1866,10 @@
     "networkUnknownConfirmAll": "Confirm all",
     "networkUnknownConfirmed": "{count} device(s) confirmed as known",
     "networkScanScheduledFinished": "Scheduled scan finished: {found} found, {new} new",
-    "networkScanScheduledUnknown": "Scheduled scan: {count} unknown device(s) found"
+    "networkScanScheduledUnknown": "Scheduled scan: {count} unknown device(s) found",
+    "networkScanTypeHttp": "Web page (HTTP)",
+    "networkScanTypeRtsp": "Camera (RTSP)",
+    "networkScanTypeSnmp": "Switch (SNMP)",
+    "networkScanPath": "Path",
+    "networkScanCommunity": "SNMP community"
 }

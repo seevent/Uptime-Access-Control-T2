@@ -487,19 +487,42 @@
                                                     >
                                                         <option value="ping">{{ $t("networkScanTypePing") }}</option>
                                                         <option value="port">{{ $t("networkScanTypePort") }}</option>
+                                                        <option value="http">{{ $t("networkScanTypeHttp") }}</option>
+                                                        <option value="rtsp">{{ $t("networkScanTypeRtsp") }}</option>
+                                                        <option value="snmp">{{ $t("networkScanTypeSnmp") }}</option>
                                                     </select>
                                                 </td>
                                                 <td>
-                                                    <input
-                                                        v-if="item.type === 'port'"
-                                                        v-model="item.port"
-                                                        type="number"
-                                                        min="1"
-                                                        max="65535"
-                                                        required
-                                                        class="form-control form-control-sm port-input"
-                                                        :aria-label="$t('networkScanPort') + ' ' + item.ip"
-                                                    />
+                                                    <div v-if="item.type !== 'ping'" class="d-flex flex-wrap gap-1">
+                                                        <input
+                                                            v-model="item.port"
+                                                            type="number"
+                                                            min="1"
+                                                            max="65535"
+                                                            :required="item.type === 'port'"
+                                                            :placeholder="defaultPortOf(item.type)"
+                                                            class="form-control form-control-sm port-input"
+                                                            :aria-label="$t('networkScanPort') + ' ' + item.ip"
+                                                        />
+                                                        <input
+                                                            v-if="item.type === 'http'"
+                                                            v-model="item.path"
+                                                            type="text"
+                                                            maxlength="200"
+                                                            placeholder="/"
+                                                            class="form-control form-control-sm path-input"
+                                                            :aria-label="$t('networkScanPath') + ' ' + item.ip"
+                                                        />
+                                                        <input
+                                                            v-if="item.type === 'snmp'"
+                                                            v-model="item.community"
+                                                            type="text"
+                                                            maxlength="64"
+                                                            placeholder="public"
+                                                            class="form-control form-control-sm path-input"
+                                                            :aria-label="$t('networkScanCommunity') + ' ' + item.ip"
+                                                        />
+                                                    </div>
                                                 </td>
                                             </tr>
                                         </tbody>
@@ -1650,6 +1673,15 @@ export default {
         },
 
         /**
+         * The port a monitor type uses when the port is left empty.
+         * @param {string} type Monitor type
+         * @returns {string} Port, as a placeholder text
+         */
+        defaultPortOf(type) {
+            return { http: "80", rtsp: "554", snmp: "161" }[type] || "";
+        },
+
+        /**
          * Open the dialog of the scheduled scan.
          * @returns {void}
          */
@@ -1766,6 +1798,8 @@ export default {
                     name: device.label || device.hostname || device.ip,
                     type: "ping",
                     port: "",
+                    path: "",
+                    community: "",
                 })),
                 interval: 60,
                 parent: null,
@@ -1784,7 +1818,9 @@ export default {
                 devices: this.addForm.items.map((item) => ({
                     id: item.id,
                     type: item.type,
-                    ...(item.type === "port" ? { port: item.port } : {}),
+                    ...(item.type !== "ping" && String(item.port ?? "").trim() !== "" ? { port: item.port } : {}),
+                    ...(item.type === "http" && item.path.trim() !== "" ? { path: item.path } : {}),
+                    ...(item.type === "snmp" && item.community.trim() !== "" ? { community: item.community } : {}),
                 })),
                 interval: this.addForm.interval,
                 parent: this.addForm.parent,
@@ -1837,6 +1873,10 @@ export default {
 
 .label-input {
     min-width: 7rem;
+}
+
+.path-input {
+    width: 9rem;
 }
 
 .port-input {

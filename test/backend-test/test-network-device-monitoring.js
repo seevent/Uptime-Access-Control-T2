@@ -133,6 +133,109 @@ describe("addDevicesToMonitoring", () => {
         assert.equal(m.timeout, 48);
     });
 
+    test("adds an http monitor: https for the TLS ports, a path, and a page that asks for a login is up", async () => {
+        const devices = await seed([{ ip: "10.0.0.5" }, { ip: "10.0.0.6" }, { ip: "10.0.0.7" }]);
+        const result = await add([
+            { id: devices[0].id, type: "http" },
+            { id: devices[1].id, type: "http", port: "443", path: "login" },
+            { id: devices[2].id, type: "http", port: 8080, path: "/api/status?x=1" },
+        ]);
+        assert.deepEqual(result, { added: 3, skipped: 0, failed: [] });
+
+        const byHost = Object.fromEntries((await R.getAll("SELECT * FROM monitor")).map((m) => [m.hostname, m]));
+        assert.equal(byHost["10.0.0.5"].url, "http://10.0.0.5/");
+        assert.equal(byHost["10.0.0.6"].url, "https://10.0.0.6/login");
+        assert.equal(byHost["10.0.0.7"].url, "http://10.0.0.7:8080/api/status?x=1");
+        for (const m of Object.values(byHost)) {
+            assert.equal(m.type, "http");
+            assert.equal(m.method, "GET");
+            assert.equal(m.timeout, 48);
+            assert.equal(Boolean(m.ignore_tls), true);
+            assert.equal(m.accepted_statuscodes_json, '["200-299","300-399","401","403"]');
+        }
+    });
+
+    test("adds an rtsp monitor on port 554 unless another port is given", async () => {
+        const devices = await seed([{ ip: "10.0.0.5" }, { ip: "10.0.0.6" }]);
+        await add([
+            { id: devices[0].id, type: "rtsp" },
+            { id: devices[1].id, type: "rtsp", port: "8554" },
+        ]);
+        const byHost = Object.fromEntries((await R.getAll("SELECT * FROM monitor")).map((m) => [m.hostname, m]));
+        assert.equal(byHost["10.0.0.5"].type, "rtsp");
+        assert.equal(byHost["10.0.0.5"].port, 554);
+        assert.equal(byHost["10.0.0.6"].port, 8554);
+        assert.equal(byHost["10.0.0.5"].timeout, 10);
+    });
+
+    test("adds an snmp monitor that asks sysUpTime with the community", async () => {
+        const devices = await seed([{ ip: "10.0.0.5" }, { ip: "10.0.0.6" }]);
+        await add([
+            { id: devices[0].id, type: "snmp" },
+            { id: devices[1].id, type: "snmp", port: 1161, community: "t2-ro" },
+        ]);
+        const byHost = Object.fromEntries((await R.getAll("SELECT * FROM monitor")).map((m) => [m.hostname, m]));
+        const a = byHost["10.0.0.5"];
+        assert.equal(a.type, "snmp");
+        assert.equal(a.port, 161);
+        assert.equal(a.snmp_version, "2c");
+        assert.equal(a.radius_password, "public");
+        assert.equal(a.snmp_oid, "1.3.6.1.2.1.1.3.0");
+        assert.equal(a.json_path, "$");
+        assert.equal(a.json_path_operator, ">=");
+        assert.equal(a.expected_value, "0");
+        assert.equal(a.timeout, 10);
+        assert.equal(byHost["10.0.0.6"].radius_password, "t2-ro");
+        assert.equal(byHost["10.0.0.6"].port, 1161);
+    });
+
+    test("refuses wrong ports, paths, communities and types, per device", async () => {
+        const devices = await seed([
+            { ip: "10.0.0.1" },
+            { ip: "10.0.0.2" },
+            { ip: "10.0.0.3" },
+            { ip: "10.0.0.4" },
+            { ip: "10.0.0.5" },
+        ]);
+        const result = await add([
+            { id: devices[0].id, type: "rtsp", port: "70000" },
+            { id: devices[1].id, type: "http", path: "/a b" },
+            { id: devices[2].id, type: "snmp", community: "a b" },
+            { id: devices[3].id, type: "ftp" },
+            { id: devices[4].id, type: "port" },
+        ]);
+        assert.equal(result.added, 0);
+        assert.deepEqual(
+            result.failed.map((f) => f.msg),
+            [
+                "Port tidak valid",
+                "Path tidak valid",
+                "Community SNMP tidak valid",
+                "Tipe monitor tidak valid",
+                "Port tidak valid",
+            ]
+        );
+        assert.equal((await R.getAll("SELECT id FROM monitor")).length, 0);
+    });
+
+    test("finds the same http, rtsp and snmp monitor again instead of making another", async () => {
+        const [a, b, c] = await seed([{ ip: "10.0.0.1" }, { ip: "10.0.0.2" }, { ip: "10.0.0.3" }]);
+        const first = await add([
+            { id: a.id, type: "http", port: 8080, path: "/x" },
+            { id: b.id, type: "rtsp" },
+            { id: c.id, type: "snmp" },
+        ]);
+        assert.equal(first.added, 3);
+        await R.exec("UPDATE network_device SET monitor_id = NULL");
+        const again = await add([
+            { id: a.id, type: "http", port: 8080, path: "/x" },
+            { id: b.id, type: "rtsp", port: 554 },
+            { id: c.id, type: "snmp", port: 161 },
+        ]);
+        assert.deepEqual(again, { added: 0, skipped: 3, failed: [] });
+        assert.equal((await R.getAll("SELECT id FROM monitor")).length, 3);
+    });
+
     test("skips devices that are already monitored", async () => {
         const [a, b, c] = await seed([{ ip: "10.0.0.1" }, { ip: "10.0.0.2" }, { ip: "10.0.0.3" }]);
         await add([{ id: a.id, type: "ping" }]);

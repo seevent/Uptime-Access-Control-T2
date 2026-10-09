@@ -1560,7 +1560,7 @@
     "networkImportTitle": "Impor perangkat dari Excel",
     "networkImportFile": "File Excel (.xlsx)",
     "networkImportFileInfo": "{name} · {count} baris",
-    "networkImportHelp": "Kolom yang dibaca: IP (wajib), Nama, Kategori, Sub kategori, Tipe (ping atau port), dan Port. Kategori yang belum ada dibuat otomatis. Tipe atau Port di file menggantikan pilihan bawaan di bawah untuk baris itu.",
+    "networkImportHelp": "Kolom yang dibaca: IP (wajib), Nama, Kategori, Sub kategori, Tipe (ping, port, http, rtsp, atau snmp), Port, Path (http), dan Community (snmp). Kategori yang belum ada dibuat otomatis. Tipe atau Port di file menggantikan pilihan bawaan di bawah untuk baris itu; port http, rtsp, dan snmp yang kosong berarti 80, 554, dan 161.",
     "networkImportTemplate": "Unduh template",
     "networkImportDefaultType": "Tipe monitor bawaan",
     "networkImportDefaultPort": "Port bawaan",
@@ -1688,5 +1688,10 @@
     "networkUnknownConfirmAll": "Tandai semua dikenal",
     "networkUnknownConfirmed": "{count} perangkat ditandai dikenal",
     "networkScanScheduledFinished": "Scan terjadwal selesai: {found} ditemukan, {new} baru",
-    "networkScanScheduledUnknown": "Scan terjadwal: {count} perangkat asing ditemukan"
+    "networkScanScheduledUnknown": "Scan terjadwal: {count} perangkat asing ditemukan",
+    "networkScanTypeHttp": "Halaman web (HTTP)",
+    "networkScanTypeRtsp": "Kamera (RTSP)",
+    "networkScanTypeSnmp": "Switch (SNMP)",
+    "networkScanPath": "Path",
+    "networkScanCommunity": "Community SNMP"
 }
