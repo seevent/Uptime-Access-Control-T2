@@ -101,12 +101,20 @@
                                     <label for="networkImportGroup" class="form-label">
                                         {{ $t("Monitor Group") }}
                                     </label>
-                                    <select id="networkImportGroup" v-model="form.parent" class="form-select">
+                                    <select
+                                        id="networkImportGroup"
+                                        v-model="form.parent"
+                                        class="form-select"
+                                        aria-describedby="networkImportGroupHint"
+                                    >
                                         <option :value="null">{{ $t("None") }}</option>
                                         <option v-for="group in groupList" :key="group.id" :value="group.id">
                                             {{ group.pathName || group.name }}
                                         </option>
                                     </select>
+                                    <div id="networkImportGroupHint" class="form-text">
+                                        {{ $t("networkScanGroupHint") }}
+                                    </div>
                                 </div>
                             </div>
 

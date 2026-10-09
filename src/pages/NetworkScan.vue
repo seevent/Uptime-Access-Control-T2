@@ -494,12 +494,20 @@
                                         <label for="networkScanGroup" class="form-label">
                                             {{ $t("Monitor Group") }}
                                         </label>
-                                        <select id="networkScanGroup" v-model="addForm.parent" class="form-select">
+                                        <select
+                                            id="networkScanGroup"
+                                            v-model="addForm.parent"
+                                            class="form-select"
+                                            aria-describedby="networkScanGroupHint"
+                                        >
                                             <option :value="null">{{ $t("None") }}</option>
                                             <option v-for="group in groupList" :key="group.id" :value="group.id">
                                                 {{ group.pathName || group.name }}
                                             </option>
                                         </select>
+                                        <div id="networkScanGroupHint" class="form-text">
+                                            {{ $t("networkScanGroupHint") }}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -599,6 +607,7 @@
                             <button type="button" class="btn-close" data-bs-dismiss="modal" :aria-label="$t('Close')" />
                         </div>
                         <div class="modal-body">
+                            <p class="form-text mt-0 mb-2">{{ $t("networkScanCategoryGroupsNote") }}</p>
                             <p v-if="categories.length === 0" class="mb-3">{{ $t("networkScanNoCategories") }}</p>
 
                             <div v-for="category in categories" :key="category.id" class="category-block mb-3">
@@ -658,6 +667,12 @@
                                             </template>
                                             <font-awesome-icon v-else icon="trash" />
                                         </button>
+                                    </div>
+                                    <div
+                                        v-if="category.subcategories.some((sub) => sub.id === pendingDeleteId)"
+                                        class="form-text text-danger"
+                                    >
+                                        {{ $t("networkScanSubcategoryDeleteHint") }}
                                     </div>
 
                                     <form
