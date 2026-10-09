@@ -1435,6 +1435,13 @@ app.use(function (req, res, next) {
             log.error("network-scan", `Could not start the scheduled network scan: ${e.message}`);
         }
 
+        // The monthly Excel report of the network, saved in a folder when it is switched on
+        try {
+            require("./network-report-schedule").startScheduler(Database.dataDir);
+        } catch (e) {
+            log.error("network-scan", `Could not start the monthly report: ${e.message}`);
+        }
+
         // Put this here. Start background jobs after the db and server is ready to prevent clear up during db migration.
         await initBackgroundJobs();
 

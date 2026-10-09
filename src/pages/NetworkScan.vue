@@ -182,6 +182,10 @@
                         <font-awesome-icon icon="chart-line" />
                         {{ $t("networkHistoryButton") }}
                     </button>
+                    <button type="button" class="btn btn-sm btn-normal" @click="openReportDialog">
+                        <font-awesome-icon icon="file-excel" />
+                        {{ $t("networkReportButton") }}
+                    </button>
                     <button
                         type="button"
                         class="btn btn-sm btn-normal"
@@ -660,6 +664,7 @@
             </div>
 
             <NetworkScheduleDialog ref="scheduleDialog" :suggested-ranges="rangesText" />
+            <NetworkReportDialog ref="reportDialog" />
             <NetworkImportDialog ref="importDialog" :group-list="groupList" :categories="categories" />
 
             <NetworkHistoryDialog
@@ -821,6 +826,7 @@ import Datetime from "../components/Datetime.vue";
 import NetworkHistoryDialog from "../components/NetworkHistoryDialog.vue";
 import NetworkImportDialog from "../components/NetworkImportDialog.vue";
 import NetworkScheduleDialog from "../components/NetworkScheduleDialog.vue";
+import NetworkReportDialog from "../components/NetworkReportDialog.vue";
 import NetworkPeriodPicker from "../components/NetworkPeriodPicker.vue";
 import NetworkUptimeDialog from "../components/NetworkUptimeDialog.vue";
 import { filterDevices, filterLabel, isFilterActive, normalizeFilter } from "../network-device-filter.js";
@@ -838,6 +844,7 @@ export default {
         NetworkImportDialog,
         NetworkPeriodPicker,
         NetworkScheduleDialog,
+        NetworkReportDialog,
         NetworkUptimeDialog,
     },
 
@@ -1758,6 +1765,14 @@ export default {
          */
         defaultPortOf(type) {
             return { http: "80", rtsp: "554", snmp: "161" }[type] || "";
+        },
+
+        /**
+         * Open the dialog of the monthly report.
+         * @returns {void}
+         */
+        openReportDialog() {
+            this.$refs.reportDialog.show();
         },
 
         /**

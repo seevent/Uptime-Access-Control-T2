@@ -71,6 +71,9 @@ module.exports.syncCategoriesAfterDashboardChange = async (socket, server, start
  * @param {object} deps.uptime Replacement for server/network-device-uptime (tests)
  * @param {object} deps.history Replacement for server/network-device-history (tests)
  * @param {object} deps.ping Replacement for server/network-device-ping (tests)
+ * @param {object} deps.report Replacement for server/network-report (tests)
+ * @param {object} deps.reportSchedule Replacement for server/network-report-schedule (tests)
+ * @param {string} deps.dataDir Data folder of the server (tests)
  * @returns {void}
  */
 module.exports.networkScanSocketHandler = (socket, server, deps = {}) => {
@@ -210,6 +213,41 @@ module.exports.networkScanSocketHandler = (socket, server, deps = {}) => {
         const updated = await getStore().setDevicesDependency(ids, dependsOnId ?? null);
         await emitDeviceList();
         return { updated };
+    });
+
+    const getReport = () => deps.report || require("../network-report");
+    const getReportSchedule = () => deps.reportSchedule || require("../network-report-schedule");
+    const getDataDir = () => deps.dataDir || require("../database").dataDir;
+
+    register("getNetworkReportSettings", false, async () => {
+        const reports = getReportSchedule();
+        const settings = await reports.getSchedule();
+        return {
+            settings,
+            folder: reports.reportFolder(settings, getDataDir()),
+            lastMonth: getReport().previousMonth(Date.now()),
+        };
+    });
+
+    register("saveNetworkReportSettings", true, async (payload) => {
+        const reports = getReportSchedule();
+        const settings = await reports.saveSchedule(payload, getDataDir());
+        return { settings, folder: reports.reportFolder(settings, getDataDir()) };
+    });
+
+    register("downloadNetworkReport", true, async (payload) => {
+        const report = await getReport().buildMonthlyReport({ month: payload?.month });
+        return { filename: report.filename, data: report.buffer.toString("base64"), devices: report.devices };
+    });
+
+    register("saveNetworkReportNow", true, async (payload) => {
+        const reports = getReportSchedule();
+        const settings = await reports.getSchedule();
+        const saved = await reports.saveReport({
+            month: payload?.month,
+            folder: reports.reportFolder(settings, getDataDir()),
+        });
+        return { file: saved.file, devices: saved.devices };
     });
 
     register("updateNetworkDevice", true, async (payload) => {

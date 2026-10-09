@@ -10,6 +10,7 @@ const NO_PAYLOAD_EVENTS = new Set([
     "getNetworkScanStatus",
     "getNetworkCategories",
     "getNetworkScanSchedule",
+    "getNetworkReportSettings",
 ]);
 const ALL_EVENTS = [
     "getLocalSubnets",
@@ -37,6 +38,10 @@ const ALL_EVENTS = [
     "saveNetworkScanSchedule",
     "acknowledgeNetworkDevices",
     "setNetworkDevicesDependency",
+    "getNetworkReportSettings",
+    "saveNetworkReportSettings",
+    "downloadNetworkReport",
+    "saveNetworkReportNow",
 ];
 
 /**
@@ -229,6 +234,33 @@ function createHarness({ loggedIn = true, scan } = {}) {
                 };
             }),
     };
+    let reportSettings = { enabled: false, folder: "", hour: 7 };
+    const report = {
+        previousMonth: () => "2026-09",
+        buildMonthlyReport: async (params) => {
+            calls.push(["buildMonthlyReport", params]);
+            if (params.month !== "2026-09") {
+                throw new Error("Bulan tidak valid (tulis sebagai TTTT-BB, misalnya 2026-09)");
+            }
+            return { filename: "laporan-jaringan-2026-09.xlsx", buffer: Buffer.from("PKfake"), devices: 3 };
+        },
+    };
+    const reportSchedule = {
+        getSchedule: async () => reportSettings,
+        saveSchedule: async (input, dataDir) => {
+            calls.push(["saveReportSchedule", input, dataDir]);
+            if (input.hour > 23) {
+                throw new Error("Jam harus antara 0 dan 23");
+            }
+            reportSettings = input;
+            return reportSettings;
+        },
+        reportFolder: (settings, dataDir) => settings.folder || `${dataDir}/reports`,
+        saveReport: async (params) => {
+            calls.push(["saveReport", params]);
+            return { file: `${params.folder}/laporan-jaringan-${params.month}.xlsx`, devices: 3 };
+        },
+    };
     // Category <-> group sync: records what the handler asks for; rename and delete go through the fake store.
     const syncCalls = [];
     const categorySync = {
@@ -252,6 +284,9 @@ function createHarness({ loggedIn = true, scan } = {}) {
     networkScanSocketHandler(socket, server, {
         categorySync,
         schedule,
+        report,
+        reportSchedule,
+        dataDir: "/data",
         startMonitor: async () => {},
         updateMonitorNotification: async () => {},
         scanner,
@@ -804,6 +839,44 @@ describe("network scan socket handler", () => {
                 msg: "Pilih 1 sampai 2000 perangkat",
             });
             assert.equal(h.emitted.filter((e) => e.event === "networkDeviceList").length, 0);
+        });
+
+        test("the monthly report can be downloaded and saved in the folder", async () => {
+            const h = createHarness();
+            assert.deepEqual(await h.call("downloadNetworkReport", { month: "2026-09" }), {
+                ok: true,
+                filename: "laporan-jaringan-2026-09.xlsx",
+                data: Buffer.from("PKfake").toString("base64"),
+                devices: 3,
+            });
+            assert.deepEqual(await h.call("downloadNetworkReport", { month: "bad" }), {
+                ok: false,
+                msg: "Bulan tidak valid (tulis sebagai TTTT-BB, misalnya 2026-09)",
+            });
+            assert.deepEqual(await h.call("saveNetworkReportNow", { month: "2026-09" }), {
+                ok: true,
+                file: "/data/reports/laporan-jaringan-2026-09.xlsx",
+                devices: 3,
+            });
+        });
+
+        test("the settings of the automatic report can be read and saved", async () => {
+            const h = createHarness();
+            assert.deepEqual(await h.call("getNetworkReportSettings"), {
+                ok: true,
+                settings: { enabled: false, folder: "", hour: 7 },
+                folder: "/data/reports",
+                lastMonth: "2026-09",
+            });
+            assert.deepEqual(await h.call("saveNetworkReportSettings", { enabled: true, folder: "/x", hour: 6 }), {
+                ok: true,
+                settings: { enabled: true, folder: "/x", hour: 6 },
+                folder: "/x",
+            });
+            assert.deepEqual(await h.call("saveNetworkReportSettings", { enabled: true, folder: "", hour: 30 }), {
+                ok: false,
+                msg: "Jam harus antara 0 dan 23",
+            });
         });
 
         test("the schedule can be read and saved", async () => {
