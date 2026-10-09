@@ -416,6 +416,18 @@ describe("network categories <-> group monitors", () => {
         });
     });
 
+    test("a category that only now gets its group takes its monitors along, even when the dashboard wins", async () => {
+        const [a] = await devices(["10.0.0.1"]);
+        const cat = await store.addCategory("Terminal 2");
+        await store.setDeviceCategory(a.id, cat.id, null);
+        const m = await monitorFor(a);
+
+        // place null: what a dashboard change would run
+        await run(null);
+        assert.equal(await parentOf(m), (await groupOf(cat.id)).id);
+        assert.equal((await device(a.id)).categoryId, cat.id);
+    });
+
     test("uniqueName adds a number until the name is free and keeps the length limit", () => {
         assert.equal(sync.uniqueName("CCTV", new Set()), "CCTV");
         assert.equal(sync.uniqueName("CCTV", new Set(["cctv"])), "CCTV (2)");

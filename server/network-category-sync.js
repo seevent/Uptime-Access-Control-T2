@@ -283,6 +283,9 @@ async function runSync({ place, userID, deps }) {
     }
 
     // 4. Categories without a group get one (categories first, then sub categories inside them).
+    // The devices of such a category always move into the new group, whatever `place` says: their monitors
+    // cannot be in a group that did not exist, so letting the dashboard win would drop their category.
+    const newlyGrouped = new Set();
     if (userID) {
         const ordered = [...rows.values()].sort((a, b) => (a.parent === null ? 0 : 1) - (b.parent === null ? 0 : 1));
         for (const row of ordered) {
@@ -300,6 +303,7 @@ async function runSync({ place, userID, deps }) {
                 monitors.set(id, { id, name: row.name, type: "group", parent: parentGroup, user_id: userID });
                 catOfGroup.set(id, row.id);
                 result.monitorsCreated.push(id);
+                newlyGrouped.add(row.id);
                 result.categoriesChanged = true;
             } catch (e) {
                 log.error("network-scan", `Could not create the group for category ${row.id}: ${e.message}`);
@@ -352,7 +356,9 @@ async function runSync({ place, userID, deps }) {
         const monitorId = device.monitor_id;
         if (monitorId !== null && monitors.has(monitorId) && monitors.get(monitorId).type !== "group") {
             const current = nearestCategory(monitorId);
-            const placeIt = placeSet === "all" ? own !== null : placeSet !== null && placeSet.has(device.id);
+            const placeIt =
+                (own !== null && newlyGrouped.has(own)) ||
+                (placeSet === "all" ? own !== null : placeSet !== null && placeSet.has(device.id));
             if (placeIt) {
                 if (current !== own) {
                     const target = own === null ? null : rows.get(own).group;
