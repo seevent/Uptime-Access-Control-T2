@@ -182,6 +182,10 @@
                         <font-awesome-icon icon="chart-line" />
                         {{ $t("networkHistoryButton") }}
                     </button>
+                    <router-link to="/wallboard" target="_blank" class="btn btn-sm btn-normal">
+                        <font-awesome-icon icon="expand" />
+                        {{ $t("wallboardButton") }}
+                    </router-link>
                     <button type="button" class="btn btn-sm btn-normal" @click="openReportDialog">
                         <font-awesome-icon icon="file-excel" />
                         {{ $t("networkReportButton") }}

@@ -18,6 +18,7 @@ import NotFound from "./pages/NotFound.vue";
 import DockerHosts from "./components/settings/Docker.vue";
 import ManageMaintenance from "./pages/ManageMaintenance.vue";
 import NetworkScan from "./pages/NetworkScan.vue";
+import NetworkWallboard from "./pages/NetworkWallboard.vue";
 import APIKeys from "./components/settings/APIKeys.vue";
 import SetupDatabase from "./pages/SetupDatabase.vue";
 
@@ -169,6 +170,11 @@ const routes = [
                 ],
             },
         ],
+    },
+    {
+        // A full screen page for a control room: no menu, so it stays outside the layout
+        path: "/wallboard",
+        component: NetworkWallboard,
     },
     {
         path: "/setup",
