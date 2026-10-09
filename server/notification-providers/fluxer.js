@@ -13,7 +13,7 @@ class Fluxer extends NotificationProvider {
 
         try {
             let config = this.getAxiosConfigWithProxy({});
-            const fluxerDisplayName = notification.fluxerUsername || "Uptime Kuma";
+            const fluxerDisplayName = notification.fluxerUsername || "Uptime Access Control T2";
             const webhookUrl = new URL(notification.fluxerWebhookUrl);
 
             // Check if the webhook has an avatar

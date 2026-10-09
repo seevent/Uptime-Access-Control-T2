@@ -13,13 +13,13 @@
         </div>
 
         <!-- Desktop header -->
-        <header v-if="!$root.isMobile" class="d-flex flex-wrap justify-content-center py-3 mb-3 border-bottom">
+        <header v-if="!$root.isMobile" class="d-flex flex-wrap justify-content-center py-1 mb-2 border-bottom">
             <router-link
                 to="/dashboard"
-                class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-dark text-decoration-none"
+                class="d-flex align-items-center mb-0 me-md-auto text-dark text-decoration-none"
             >
-                <object class="bi me-2 ms-4" width="40" height="40" data="/icon.svg" />
-                <span class="fs-4 title">{{ $t("Uptime Kuma") }}</span>
+                <object class="bi me-2 ms-3" width="28" height="28" data="/icon.svg" />
+                <span class="fs-5 title">{{ $t("Uptime Kuma") }}</span>
             </router-link>
 
             <a
@@ -74,6 +74,17 @@
                             <!-- Functions -->
                             <li>
                                 <router-link
+                                    to="/network-scan"
+                                    class="dropdown-item"
+                                    :class="{ active: $route.path.includes('network-scan') }"
+                                >
+                                    <font-awesome-icon icon="network-wired" />
+                                    {{ $t("networkScan") }}
+                                </router-link>
+                            </li>
+
+                            <li>
+                                <router-link
                                     to="/maintenance"
                                     class="dropdown-item"
                                     :class="{ active: $route.path.includes('manage-maintenance') }"
@@ -118,10 +129,10 @@
         </header>
 
         <!-- Mobile header -->
-        <header v-else class="d-flex flex-wrap justify-content-center pt-2 pb-2 mb-3">
+        <header v-else class="d-flex flex-wrap justify-content-center pt-1 pb-1 mb-2">
             <router-link to="/dashboard" class="d-flex align-items-center text-dark text-decoration-none">
-                <object class="bi" width="40" height="40" data="/icon.svg" />
-                <span class="fs-4 title ms-2">Uptime Kuma</span>
+                <object class="bi" width="28" height="28" data="/icon.svg" />
+                <span class="fs-5 title ms-2">Uptime Access Control T2</span>
             </router-link>
         </header>
 
@@ -299,7 +310,7 @@ export default {
 }
 
 main {
-    min-height: calc(100vh - 160px);
+    min-height: calc(100vh - 100px);
 }
 
 .title {
@@ -307,7 +318,7 @@ main {
 }
 
 .nav {
-    margin-right: 25px;
+    margin-right: 12px;
 }
 
 .lost-connection {
@@ -329,7 +340,7 @@ main {
         gap: 6px;
         align-items: center;
         background-color: rgba(200, 200, 200, 0.2);
-        padding: 0.5rem 0.8rem;
+        padding: 0.3rem 0.65rem;
 
         &:hover {
             background-color: rgba(255, 255, 255, 0.2);
@@ -351,12 +362,12 @@ main {
         }
 
         .dropdown-item-text {
-            font-size: 14px;
-            padding-bottom: 0.7rem;
+            font-size: 13px;
+            padding-bottom: 0.4rem;
         }
 
         .dropdown-item {
-            padding: 0.7rem 1rem;
+            padding: 0.4rem 0.8rem;
         }
 
         .dark & {

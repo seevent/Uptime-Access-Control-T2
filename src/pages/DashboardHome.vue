@@ -1,11 +1,11 @@
 <template>
     <transition ref="tableContainer" name="slide-fade" appear>
         <div v-if="$route.name === 'DashboardHome'">
-            <h1 class="mb-3">
+            <h1 class="mb-2">
                 {{ $t("Quick Stats") }}
             </h1>
 
-            <div class="shadow-box big-padding text-center mb-3">
+            <div class="shadow-box big-padding text-center mb-2">
                 <div class="row">
                     <div class="col">
                         <h3>{{ $t("Up") }}</h3>
@@ -37,7 +37,7 @@
             </div>
 
             <div class="shadow-box table-shadow-box table-wrapper">
-                <div class="mb-3 text-end">
+                <div class="mb-2 text-end">
                     <button
                         class="btn btn-sm btn-outline-danger"
                         :disabled="clearingAllEvents"
@@ -256,7 +256,7 @@ export default {
             const tableContainer = this.$refs.tableContainer;
             const tableContainerHeight = tableContainer.offsetHeight;
             const availableHeight = window.innerHeight - tableContainerHeight;
-            const additionalPerPage = Math.floor(availableHeight / 58);
+            const additionalPerPage = Math.floor(availableHeight / 34);
 
             if (additionalPerPage > 0) {
                 this.perPage = Math.max(this.initialPerPage, this.perPage + additionalPerPage);
@@ -309,18 +309,18 @@ export default {
 @import "../assets/vars";
 
 .num {
-    font-size: 30px;
+    font-size: 22px;
     color: $primary;
     font-weight: bold;
     display: block;
 }
 
 .shadow-box {
-    padding: 20px;
+    padding: 12px;
 }
 
 table {
-    font-size: 14px;
+    font-size: 13px;
 
     tr {
         transition: all ease-in-out 0.2ms;

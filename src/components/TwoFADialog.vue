@@ -176,7 +176,7 @@ export default {
 
             const { data, error } = await authClient.twoFactor.enable({
                 password: this.currentPassword!,
-                issuer: "Uptime Kuma",
+                issuer: "Uptime Access Control T2",
             });
 
             this.processing = false;

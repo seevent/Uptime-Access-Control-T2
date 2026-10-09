@@ -173,11 +173,11 @@ export default {
         boxStyle() {
             if (window.innerWidth > 550) {
                 return {
-                    height: `calc(100vh - 160px + ${this.windowTop}px)`,
+                    height: `calc(100vh - 100px + ${this.windowTop}px)`,
                 };
             } else {
                 return {
-                    height: "calc(100vh - 160px)",
+                    height: "calc(100vh - 100px)",
                 };
             }
         },
@@ -211,7 +211,7 @@ export default {
         monitorListStyle() {
             // The header height has to be changed in case it is modified in the future.
             // +10px is the margin-bottom of the header
-            let listHeaderHeight = 58 + 10;
+            let listHeaderHeight = 48 + 10;
 
             // Only add extra height when selection row is visible
             if (this.selectMode && this.selectedMonitorCount > 0) {
@@ -611,9 +611,9 @@ export default {
 @import "../assets/vars.scss";
 
 .shadow-box {
-    height: calc(100vh - 150px);
+    height: calc(100vh - 90px);
     position: sticky;
-    top: 10px;
+    top: 6px;
 }
 
 .small-padding {
@@ -628,7 +628,7 @@ export default {
     padding: 10px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
 
     .dark & {
         background-color: $dark-header-bg;

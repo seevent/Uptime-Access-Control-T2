@@ -2,6 +2,11 @@
 @import "multiselect.scss";
 @import "node_modules/bootstrap/scss/bootstrap";
 
+// Compact UI: smaller root size so every rem-based size and spacing scales down
+html {
+    font-size: 14px;
+}
+
 #app {
     font-family:
         "Twemoji Country Flags",
@@ -19,11 +24,11 @@
 }
 
 h1 {
-    font-size: 32px;
+    font-size: 22px;
 }
 
 h2 {
-    font-size: 26px;
+    font-size: 18px;
 }
 
 textarea.form-control {
@@ -109,21 +114,23 @@ optgroup {
 .shadow-box {
     //overflow: hidden;   // Forget why add this, but multiple select hide by this
     box-shadow: 0 15px 70px rgba(0, 0, 0, 0.1);
-    padding: 10px;
+    padding: 8px;
     border-radius: 10px;
 
     &.big-padding {
-        padding: 20px;
+        padding: 12px;
     }
 }
 
 .btn {
-    padding-left: 20px;
-    padding-right: 20px;
+    padding-left: 12px;
+    padding-right: 12px;
 }
 
 .btn-sm {
     border-radius: 25px;
+    padding-left: 9px;
+    padding-right: 9px;
 }
 
 .btn-primary {
@@ -183,7 +190,7 @@ optgroup {
 }
 
 .btn-outline-normal {
-    padding: 4px 10px;
+    padding: 2px 8px;
     border: 1px solid #ced4da;
     border-radius: 25px;
     background-color: transparent;
@@ -498,8 +505,8 @@ optgroup {
     .item {
         display: block;
         text-decoration: none;
-        padding: 13px 15px 10px 15px;
-        border-radius: 10px;
+        padding: 6px 10px 5px 10px;
+        border-radius: 8px;
         transition: all ease-in-out 0.15s;
 
         &.disabled {
@@ -631,7 +638,7 @@ h5.settings-subheading::after {
     }
 }
 
-$shadow-box-padding: 20px;
+$shadow-box-padding: 12px;
 
 .shadow-box-with-fixed-bottom-bar {
     padding-top: $shadow-box-padding;

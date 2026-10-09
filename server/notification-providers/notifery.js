@@ -14,7 +14,7 @@ class Notifery extends NotificationProvider {
         const url = "https://api.notifery.com/event";
 
         let data = {
-            title: notification.notiferyTitle || "Uptime Kuma Alert",
+            title: notification.notiferyTitle || "Uptime Access Control T2 Alert",
             message: msg,
         };
 

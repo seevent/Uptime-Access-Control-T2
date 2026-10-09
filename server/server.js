@@ -10,7 +10,7 @@ import { betterAuthSocketHandler } from "./socket-handlers/better-auth-socket-ha
 import { loadEnvFile } from "node:process";
 import * as fs from "node:fs";
 
-console.log("Welcome to Uptime Kuma");
+console.log("Welcome to Uptime Access Control T2");
 
 // As the log function need to use dayjs, it should be very top
 const dayjs = require("dayjs");
@@ -193,6 +193,7 @@ const { resetChrome } = require("./monitor-types/real-browser-monitor-type");
 const { EmbeddedMariaDB } = require("./embedded-mariadb");
 const { SetupDatabase } = require("./setup-database");
 const { chartSocketHandler } = require("./socket-handlers/chart-socket-handler");
+const { networkScanSocketHandler } = require("./socket-handlers/network-scan-socket-handler");
 
 app.use(express.json());
 
@@ -1374,6 +1375,7 @@ app.use(function (req, res, next) {
         remoteBrowserSocketHandler(socket);
         generalSocketHandler(socket, server);
         chartSocketHandler(socket);
+        networkScanSocketHandler(socket, server, { startMonitor, updateMonitorNotification });
 
         log.debug("server", "added all socket handlers");
 

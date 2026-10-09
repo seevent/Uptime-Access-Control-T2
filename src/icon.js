@@ -9,6 +9,7 @@ import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import {
     faArrowAltCircleUp,
     faCog,
+    faChartLine,
     faEdit,
     faExclamationTriangle,
     faEye,
@@ -46,6 +47,7 @@ import {
     faPlusCircle,
     faAngleDown,
     faWrench,
+    faNetworkWired,
     faHeartbeat,
     faFilter,
     faInfoCircle,
@@ -58,6 +60,7 @@ import {
 library.add(
     faArrowAltCircleUp,
     faCog,
+    faChartLine,
     faEdit,
     faExclamationTriangle,
     faEye,
@@ -96,6 +99,7 @@ library.add(
     faAngleDown,
     faLink,
     faWrench,
+    faNetworkWired,
     faHeartbeat,
     faFilter,
     faInfoCircle,

@@ -357,9 +357,9 @@ export default {
 
 .select-input-wrapper {
     float: left;
-    margin-top: 15px;
+    margin-top: 8px;
     margin-left: 3px;
-    margin-right: 10px;
+    margin-right: 8px;
     padding-left: 4px;
     position: relative;
     z-index: 15;
@@ -379,7 +379,7 @@ export default {
 
 /* -4px on all due to border-width */
 .monitor-list .drag-over .item {
-    padding: 9px 11px 6px 11px;
+    padding: 2px 6px 1px 6px;
 }
 
 .draggable-item {
@@ -388,7 +388,7 @@ export default {
 
     /* We don't want the padding change due to the border animated */
     .item {
-        padding: 12px 15px;
+        padding: 6px 10px;
         transition: none !important;
     }
 
