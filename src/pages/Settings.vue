@@ -99,6 +99,9 @@ export default {
                 "monitor-history": {
                     title: this.$t("Monitor History"),
                 },
+                "database-backup": {
+                    title: this.$t("databaseBackupTitle"),
+                },
                 "docker-hosts": {
                     title: this.$t("Docker Hosts"),
                 },

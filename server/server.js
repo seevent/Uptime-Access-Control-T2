@@ -175,6 +175,7 @@ const {
 } = require("./client");
 const { statusPageSocketHandler } = require("./socket-handlers/status-page-socket-handler");
 const { databaseSocketHandler } = require("./socket-handlers/database-socket-handler");
+const { databaseBackupSocketHandler } = require("./socket-handlers/database-backup-socket-handler");
 const { remoteBrowserSocketHandler } = require("./socket-handlers/remote-browser-socket-handler");
 const StatusPage = require("./model/status_page");
 const {
@@ -1383,6 +1384,7 @@ app.use(function (req, res, next) {
         statusPageSocketHandler(socket);
         cloudflaredSocketHandler(socket);
         databaseSocketHandler(socket);
+        databaseBackupSocketHandler(socket);
         proxySocketHandler(socket);
         dockerSocketHandler(socket);
         maintenanceSocketHandler(socket);
@@ -1433,6 +1435,13 @@ app.use(function (req, res, next) {
             require("./network-scan-schedule").startScheduler(server);
         } catch (e) {
             log.error("network-scan", `Could not start the scheduled network scan: ${e.message}`);
+        }
+
+        // Automatic backup of the database (SQLite) in a folder, when it is switched on
+        try {
+            require("./database-backup").startScheduler(Database.dataDir);
+        } catch (e) {
+            log.error("db", `Could not start the automatic database backup: ${e.message}`);
         }
 
         // The monthly Excel report of the network, saved in a folder when it is switched on
