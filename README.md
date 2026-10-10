@@ -1,205 +1,93 @@
 <div align="center" width="100%">
-    <img src="./public/icon.svg" width="128" alt="Uptime Kuma Logo" />
+    <img src="./public/icon.svg" width="128" alt="Logo Uptime Access Control T2" />
 </div>
 
-# Uptime Kuma
+# Uptime Access Control T2
 
-Uptime Kuma is an easy-to-use self-hosted monitoring tool.
+Monitoring jaringan lokal untuk lingkungan operasional keamanan bandara (Terminal 2), dibangun sebagai fork pribadi dari [Uptime Kuma](https://github.com/louislam/uptime-kuma) 3.0.0-beta.0 (lisensi MIT, lihat `LICENSE`). Semua fitur Uptime Kuma tetap ada; yang ditambahkan adalah inventaris perangkat jaringan, pengelompokan per lokasi, laporan, dan alat bantu operasional.
 
-<a target="_blank" href="https://github.com/louislam/uptime-kuma"><img src="https://img.shields.io/github/stars/louislam/uptime-kuma?style=flat" /></a> <a target="_blank" href="https://hub.docker.com/r/louislam/uptime-kuma"><img src="https://img.shields.io/docker/pulls/louislam/uptime-kuma" /></a> <a target="_blank" href="https://hub.docker.com/r/louislam/uptime-kuma"><img src="https://img.shields.io/docker/v/louislam/uptime-kuma/2?label=docker%20image%20ver." /></a> <a target="_blank" href="https://github.com/louislam/uptime-kuma"><img src="https://img.shields.io/github/last-commit/louislam/uptime-kuma" /></a> <a target="_blank" href="https://opencollective.com/uptime-kuma"><img src="https://opencollective.com/uptime-kuma/total/badge.svg?label=Open%20Collective%20Backers&color=brightgreen" /></a>
-[![GitHub Sponsors](https://img.shields.io/github/sponsors/louislam?label=GitHub%20Sponsors)](https://github.com/sponsors/louislam) <a href="https://weblate.kuma.pet/projects/uptime-kuma/uptime-kuma/">
-<img src="https://weblate.kuma.pet/widgets/uptime-kuma/-/svg-badge.svg" alt="Translation status" />
-</a>
+> Ini proyek pribadi untuk jaringan T2, bukan rilis resmi Uptime Kuma. Jangan diajukan sebagai pull request ke repo upstream tanpa ditinjau sendiri.
 
-<img src="https://user-images.githubusercontent.com/1336778/212262296-e6205815-ad62-488c-83ec-a5b0d0689f7c.jpg" width="700" alt="Uptime Kuma Dashboard Screenshot" />
+## Fitur tambahan
 
-## 🥔 Live Demo
+**Inventaris dan scan jaringan** (menu profil → "Scan Jaringan", `/network-scan`)
 
-Try it!
+- Scan rentang IP (CIDR, `a.b.c.d-e`, IP tunggal; maks 4096 alamat) dengan `ping` + tabel ARP + reverse DNS + vendor dari MAC. Hasilnya disimpan sebagai inventaris, lalu perangkat terpilih bisa dimasukkan ke monitoring.
+- Tipe monitor perangkat: **Ping, port TCP, HTTP (dengan path), RTSP (kamera), SNMP (sysUpTime, community v2c)**.
+- **Scan terjadwal** dan **perangkat asing**: perangkat baru atau IP yang tiba-tiba memakai MAC lain ditandai "Asing" dan dikirim sebagai notifikasi lewat provider notifikasi Kuma.
+- Nama perangkat, **kategori dan sub kategori** (lokasi), filter kategori, dan aksi massal.
+- Kategori terhubung dua arah dengan **grup monitor** di dashboard: kategori = grup tingkat atas, sub kategori = grup di dalamnya.
 
-Demo Server (Location: Frankfurt - Germany): <https://demo.kuma.pet/start-demo>
+**Analisis dan laporan**
 
-It is a temporary live demo, all data will be deleted after 10 minutes. Sponsored by [Uptime Kuma Sponsors](https://github.com/louislam/uptime-kuma#%EF%B8%8F-sponsors).
+- Uptime per perangkat pada rentang waktu bebas, histori kejadian down, riwayat dan grafik ping, ekspor CSV.
+- **Laporan bulanan Excel** (`.xlsx`: ringkasan per kategori, per perangkat, kejadian down), bisa diunduh atau disimpan otomatis ke folder pada tanggal 1 tiap bulan.
+- **Wallboard** layar penuh untuk ruang kontrol (`/wallboard`, opsi `?kategori=A,B`), status per kategori, daftar perangkat down, alarm bunyi opsional.
 
-## ⭐ Features
+**Pengelolaan data**
 
-- Monitoring uptime for HTTP(s) / TCP / HTTP(s) Keyword / HTTP(s) Json Query / Websocket / Ping / DNS Record / Push / Steam Game Server / Docker Containers
-- Fancy, Reactive, Fast UI/UX
-- Notifications via Telegram, Discord, Gotify, Slack, Pushover, Email (SMTP), and [90+ notification services, click here for the full list](https://github.com/louislam/uptime-kuma/tree/master/src/components/notifications)
-- 20-second intervals
-- [Multi Languages](https://github.com/louislam/uptime-kuma/tree/master/src/lang)
-- Multiple status pages
-- Map status pages to specific domains
-- Ping chart
-- Certificate info
-- Proxy support
-- 2FA support
+- **Impor** perangkat dari `.xlsx`, `.xls`, atau `.csv` (pemisah `,` `;` atau tab otomatis), dengan pratinjau per baris; **ekspor** inventaris ke Excel (kolom Community sengaja dikosongkan).
+- **Peredam alert berantai**: perangkat bisa "bergantung pada" perangkat lain; alert DOWN ditahan bila induknya sedang down.
+- **Backup otomatis `kuma.db`** (Pengaturan → Backup Database): jeda, jumlah salinan, folder, dan tombol "Backup sekarang".
 
-## 🔧 How to Install
+**Tampilan**: tata letak lebih ringkas (font dan jarak dirapatkan), nama aplikasi "Uptime Access Control T2", bahasa Indonesia dan Inggris.
 
-### 🐳 Docker Compose
+## Persyaratan
 
-```bash
-mkdir uptime-kuma
-cd uptime-kuma
-curl -o compose.yaml https://raw.githubusercontent.com/louislam/uptime-kuma/master/compose.yaml
-docker compose up -d
-```
+- Node.js **>= 26.2.0** (lihat `engines` di `package.json`)
+- `ping` dan `arp` (atau `ip neigh`) tersedia di server untuk fitur scan
+- SQLite (bawaan). Fitur backup otomatis hanya untuk SQLite.
 
-Uptime Kuma is now running on all network interfaces (e.g. http://localhost:3001 or http://your-ip:3001).
-
-> [!WARNING]
-> File Systems like **NFS** (Network File System) are **NOT** supported. Please map to a local directory or volume.
-
-### 🐳 Docker Command
+## Menjalankan dari kode sumber
 
 ```bash
-docker run -d --restart=always -p 3001:3001 -v uptime-kuma:/app/data --name uptime-kuma louislam/uptime-kuma:2
+git clone https://github.com/seevent/Uptime-Access-Control-T2.git
+cd Uptime-Access-Control-T2
+npm install
+npm run build
+npm run start-server        # http://localhost:3001
 ```
 
-Uptime Kuma is now running on all network interfaces (e.g. http://localhost:3001 or http://your-ip:3001).
+Data disimpan di `data/` (`kuma.db`). **Cadangkan `data/kuma.db` sebelum memperbarui**, lalu jalankan `npm run build` dan restart server; migrasi database berjalan otomatis saat server mulai.
 
-If you want to limit exposure to localhost only:
+## Paket instalasi Windows
+
+Folder [`installer/`](installer/README.md) berisi skrip untuk membangun `UptimeAccessControlT2-Setup-<versi>.exe` (NSIS, dibangun di Linux): server berjalan sebagai **layanan Windows** (WinSW), Node.js ikut dalam paket, data di `C:\ProgramData\UptimeAccessControlT2`, dan ada alat pemindah data lama.
 
 ```bash
-docker run ... -p 127.0.0.1:3001:3001 ...
+installer/build.sh        # hasil: installer/out/*.exe (tidak disimpan di git)
 ```
 
-### 💪🏻 Non-Docker
+Komponen unduhan (Node.js, WinSW, better-sqlite3) dikunci dengan SHA-256 di `installer/versions.json`; build berhenti bila tidak cocok. Panduan lengkap, daftar uji, dan cara upgrade ada di `installer/README.md`.
 
-Requirements:
-
-- Platform
-  - ✅ Major Linux distros such as Debian, Ubuntu, Fedora and ArchLinux etc.
-  - ✅ Windows 10 (x64), Windows Server 2012 R2 (x64) or higher
-  - ❌ FreeBSD / OpenBSD / NetBSD
-  - ❌ Replit / Heroku
-- [Node.js](https://nodejs.org/en/download/) >= 20.4
-- [Git](https://git-scm.com/downloads)
-- [pm2](https://pm2.keymetrics.io/) - For running Uptime Kuma in the background
+## Pengujian
 
 ```bash
-git clone https://github.com/louislam/uptime-kuma.git
-cd uptime-kuma
-npm run setup
-
-# Option 1. Try it
-node server/server.js
-
-# (Recommended) Option 2. Run in the background using PM2
-# Install PM2 if you don't have it:
-npm install pm2 -g && pm2 install pm2-logrotate
-
-# Start Server
-pm2 start server/server.js --name uptime-kuma
+npm run test-backend                                   # seluruh tes backend
+node --import=tsx --test test/backend-test/test-network-*.js   # tes fitur jaringan
 ```
 
-Uptime Kuma is now running on all network interfaces (e.g. http://localhost:3001 or http://your-ip:3001).
+Tes fitur jaringan dan installer lulus di Linux (uji asap paket produksi juga lulus). Sebagian tes bawaan Uptime Kuma butuh Docker atau jaringan eksternal dan gagal di lingkungan terbatas.
 
-More useful PM2 Commands
+**Belum teruji** di lingkungan nyata: pengiriman alert ke WhatsApp/Telegram, `ping`/ARP di jaringan T2, jalannya installer di Windows, wallboard di TV, dan impor `.xls` dari Excel asli (pembaca `.xls` baru dicocokkan dengan file buatan LibreOffice).
 
-```bash
-# If you want to see the current console output
-pm2 monit
+## Struktur singkat
 
-# If you want to add it to startup
-pm2 startup && pm2 save
-```
+| Lokasi                                                                             | Isi                                                                   |
+| ---------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `server/network-*.js`, `server/database-backup.js`, `server/xlsx-writer.js`        | logika fitur jaringan, laporan, backup                                |
+| `server/socket-handlers/network-scan-socket-handler.js`                            | event Socket.IO fitur jaringan                                        |
+| `src/pages/NetworkScan.vue`, `NetworkWallboard.vue`, `src/components/Network*.vue` | halaman dan dialog                                                    |
+| `src/network-*.js`                                                                 | pembaca CSV/`.xls`/Excel, agregasi, format                            |
+| `db/knex_migrations/2026-10-*`                                                     | migrasi tabel `network_device`, `network_category`, dan kolom terkait |
+| `installer/`                                                                       | paket instalasi Windows                                               |
+| `test/backend-test/test-network-*.js`, `test-installer-*.js`                       | tes                                                                   |
 
-### Advanced Installation
+## Catatan keamanan
 
-If you need more options or need to browse via a reverse proxy, please read:
+- Ekspor inventaris tidak menyertakan community SNMP. Community tetap tersimpan di database monitor; lindungi `data/kuma.db` dan file backup-nya.
+- Di jaringan tanpa internet, layanan Windows menyetel `KUMA_SKIP_HIBP=1` agar pembuatan admin tidak gagal karena pengecekan kata sandi online; pilih kata sandi yang kuat.
 
-<https://github.com/louislam/uptime-kuma/wiki/%F0%9F%94%A7-How-to-Install>
+## Lisensi dan atribusi
 
-## 🆙 How to Update
-
-Please read:
-
-<https://github.com/louislam/uptime-kuma/wiki/%F0%9F%86%99-How-to-Update>
-
-## 🆕 What's Next?
-
-I will assign requests/issues to the next milestone.
-
-<https://github.com/louislam/uptime-kuma/milestones>
-
-## ❤️ Sponsors
-
-[![Powered by Atlas Cloud](https://www.atlascloud.ai/oss-program/powered-by-atlas-cloud.svg)](https://www.atlascloud.ai/?ref=UZCYBN)
-
-Thank you so much! (GitHub Sponsors will be updated manually. OpenCollective sponsors will be updated automatically, the list will be cached by GitHub though. It may need some time to be updated)
-
-<img src="https://uptime.kuma.pet/sponsors?v=6" alt="Uptime Kuma Sponsors" />
-
-## 🖼 More Screenshots
-
-Light Mode:
-
-<img src="https://uptime.kuma.pet/img/light.jpg" width="512" alt="Uptime Kuma Light Mode Screenshot of how the Dashboard looks" />
-
-Status Page:
-
-<img src="https://user-images.githubusercontent.com/1336778/134628766-a3fe0981-0926-4285-ab46-891a21c3e4cb.png" width="512" alt="Uptime Kuma Status Page Screenshot" />
-
-Settings Page:
-
-<img src="https://louislam.net/uptimekuma/2.jpg" width="400" alt="Uptime Kuma Settings Page Screenshot" />
-
-Telegram Notification Sample:
-
-<img src="https://louislam.net/uptimekuma/3.jpg" width="400" alt="Uptime Kuma Telegram Notification Sample Screenshot" />
-
-## Motivation
-
-- I was looking for a self-hosted monitoring tool like "Uptime Robot", but it is hard to find a suitable one. One of the closest ones is statping. Unfortunately, it is not stable and no longer maintained.
-- Wanted to build a fancy UI.
-- Learn Vue 3 and vite.js.
-- Show the power of Bootstrap 5.
-- Try to use WebSocket with SPA instead of a REST API.
-- Deploy my first Docker image to Docker Hub.
-
-If you love this project, please consider giving it a ⭐.
-
-## 🗣️ Discussion / Ask for Help
-
-⚠️ For any general or technical questions, please don't send me an email, as I am unable to provide support in that manner. I will not respond if you ask questions there.
-
-I recommend using Google, GitHub Issues, or Uptime Kuma's subreddit for finding answers to your question. If you cannot find the information you need, feel free to ask:
-
-- [GitHub Issues](https://github.com/louislam/uptime-kuma/issues)
-- [Subreddit (r/UptimeKuma)](https://www.reddit.com/r/UptimeKuma/)
-
-My Reddit account: [u/louislamlam](https://reddit.com/u/louislamlam)
-You can mention me if you ask a question on the subreddit.
-
-## Contributions
-
-### Create Pull Requests
-
-Pull requests are awesome.
-To keep reviews fast and effective, please make sure you’ve [read our pull request guidelines](https://github.com/louislam/uptime-kuma/blob/master/CONTRIBUTING.md#can-i-create-a-pull-request-for-uptime-kuma).
-
-### Test Pull Requests
-
-There are a lot of pull requests right now, but I don't have time to test them all.
-
-If you want to help, you can check this:
-<https://github.com/louislam/uptime-kuma/wiki/Test-Pull-Requests>
-
-### Test Beta Version
-
-Check out the latest beta release here: <https://github.com/louislam/uptime-kuma/releases>
-
-### Bug Reports / Feature Requests
-
-If you want to report a bug or request a new feature, feel free to open a [new issue](https://github.com/louislam/uptime-kuma/issues).
-
-### Translations
-
-If you want to translate Uptime Kuma into your language, please visit [Weblate Readme](https://github.com/louislam/uptime-kuma/blob/master/src/lang/README.md).
-
-### Spelling & Grammar
-
-Feel free to correct the grammar in the documentation or code.
-My mother language is not English and my grammar is not that great.
+MIT, mengikuti Uptime Kuma. Hak cipta kode asli © Louis Lam dan kontributor Uptime Kuma; perubahan fork ini untuk keperluan internal. Dokumentasi, wiki, dan laporan masalah Uptime Kuma asli: <https://github.com/louislam/uptime-kuma>.
